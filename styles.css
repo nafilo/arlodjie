@@ -545,10 +545,6 @@ main:focus { outline: none; }
 .filter-header h2 {
   font-size: 1.85rem;
 }
-.filter-header p {
-  margin-top: 5px;
-  font-size: .85rem;
-}
 .filter-content {
   display: grid;
   gap: 20px;
@@ -615,6 +611,9 @@ main:focus { outline: none; }
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
 }
+.filter-price-error { margin-top: 8px; color: #963b32; font-size: .85rem; }
+.filter-price-error:empty { margin: 0; }
+.filter-prices input[aria-invalid="true"] { border-color: #963b32; }
 .filter-footer {
   display: flex;
   justify-content: flex-end;
@@ -831,14 +830,23 @@ main:focus { outline: none; }
   gap: 8px 12px;
   margin: -3px 0 18px;
 }
-.catalog-tags > span {
-  padding: 4px 9px;
-  border: 1px solid var(--line);
-  border-radius: 4px;
+.catalog-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 44px;
+  min-width: 0;
+  padding: 6px 10px;
+  border: 1px solid #cbbca9;
+  border-radius: 5px;
+  background: var(--white);
   color: var(--brown);
   font-size: .86rem;
+  text-align: left;
   overflow-wrap: anywhere;
 }
+.catalog-tag:hover { background: var(--sand); border-color: var(--gold); }
+.catalog-tag svg { width: 14px; height: 14px; }
 .grid { gap: clamp(18px, 2.5vw, 38px) clamp(12px, 1.7vw, 24px); }
 .card {
   display: flex;

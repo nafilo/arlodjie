@@ -6,6 +6,7 @@ const art = {
   heart: '<path d="M20.8 5.8a5.2 5.2 0 0 0-7.4 0L12 7.2l-1.4-1.4a5.2 5.2 0 0 0-7.4 7.4L12 22l8.8-8.8a5.2 5.2 0 0 0 0-7.4Z"/>',
   cart: '<path d="M4 8h16l1 13H3L4 8Z"/><path d="M8 9V6a4 4 0 0 1 8 0v3"/>',
   search: '<circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/>',
+  close: '<path d="m6 6 12 12M18 6 6 18"/>',
   back: '<path d="m14 6-6 6 6 6"/>',
   pause: '<path d="M9 5v14m6-14v14"/>',
   play: '<path d="m8 5 11 7-11 7Z"/>',
@@ -406,6 +407,20 @@ const sorters = {
   newest: ['Terbaru',(a,b)=>state.products.indexOf(b)-state.products.indexOf(a)],
   oldest: ['Terlama',(a,b)=>state.products.indexOf(a)-state.products.indexOf(b)],
 }
+function catalogTags() {
+  const tags=state.brands.map(brand=>['brand',brand,brand])
+  if(state.min||state.max){
+    const range=`${state.min?rupiah(state.min):'Rp0'} – ${state.max?rupiah(state.max):'Bebas'}`
+    tags.push(['price',range])
+  }
+  if(state.stars)tags.push(['stars',`Minimal ${state.stars} bintang`])
+  if(state.query)tags.push(['query',`“${state.query}”`])
+  if(!tags.length)return ''
+  return `<div class="catalog-tags" role="group" aria-label="Filter aktif">
+    ${tags.map(([kind,label,value])=>`<button type="button" class="catalog-tag" data-action="remove-filter" data-id="${kind}" data-value="${safe(value)}" aria-label="Hapus filter ${safe(label)}"><span>${safe(label)}</span>${icon('close')}</button>`).join('')}
+    ${action('reset','Reset filter','text-btn')}
+  </div>`
+}
 function productList() {
   const terms=state.query.trim().split(/\s+/).map(brandKey).filter(Boolean)
   const items=state.products.filter((item)=>
@@ -414,13 +429,12 @@ function productList() {
     item.rating>=Number(state.stars) && terms.every(term=>brandKey([item.brand,item.name,item.reference,item.brand==='Grand Seiko'?'GS':''].join(' ')).includes(term))
   ).sort(sorters[state.sort][1])
   const hasFilters=Boolean(state.brands.length||state.min||state.max||state.stars)
-  const tags=[...state.brands,state.min||state.max?`${state.min?rupiah(state.min):'Rp0'} – ${state.max?rupiah(state.max):'Bebas'}`:'',state.stars?`Minimal ${state.stars} bintang`:'',state.query?`“${state.query}”`:''].filter(Boolean)
   return `<header class="catalog-heading"><h1>Katalog jam</h1><span id="catalog-count">${items.length} produk</span></header>
   <div class="filters-bar"><button type="button" class="btn${hasFilters?' filter-active':''}" data-action="filter" aria-haspopup="dialog" aria-controls="sheet" aria-describedby="catalog-count">${icon('filter')}Filter</button>
     <label class="sort-control"><span>Urutkan</span><select id="sort" class="select" aria-label="Urutkan katalog">${Object.entries(sorters).map(([id,[name]])=>`<option value="${id}" ${id===state.sort?'selected':''}>${name}</option>`).join('')}</select></label>
   </div>
-  ${tags.length?`<div class="catalog-tags">${tags.map(tag=>`<span>${safe(tag)}</span>`).join('')}${action('reset','Reset filter','text-btn')}</div>`:''}
-  ${items.length?grid(items):empty('Jam tidak ditemukan','Coba kata pencarian lain atau ubah pilihan filter.',tags.length?'':link('beranda','Kembali ke beranda'))}
+  ${catalogTags()}
+  ${items.length?grid(items):empty('Jam tidak ditemukan','Coba kata pencarian lain atau ubah pilihan filter.',hasFilters||state.query?'':link('beranda','Kembali ke beranda'))}
   <p class="catalog-note">Harga dan stok adalah data demo.</p>`
 }
 
@@ -765,6 +779,14 @@ function toast(message) {
   window.clearTimeout(toast.timer)
   toast.timer=window.setTimeout(()=>{$('#toast').textContent=''},2400)
 }
+function filterPriceError(form,input,message='') {
+  form.querySelector('#filter-price-error').textContent=message
+  for(const name of ['min','max'])form.elements[name].removeAttribute('aria-invalid')
+  if(input){
+    input.setAttribute('aria-invalid','true')
+    input.focus()
+  }
+}
 function showFilter() {
   const brands=[...new Set([...watchBrands,...state.products.map(p=>p.brand)])].sort((a,b)=>a.localeCompare(b,'id',{sensitivity:'base'}))
   const countBrand=brand=>state.products.filter(product=>product.brand===brand).length
@@ -780,9 +802,9 @@ function showFilter() {
         <p class="filter-no-brands" hidden>Brand tidak ditemukan.</p>
       </fieldset>
       <fieldset class="filter-section"><legend>Rentang harga</legend><div class="filter-prices">
-        ${field('Harga minimum','min',`data-price inputmode="numeric" pattern="[0-9.]+" placeholder="Rp0" value="${state.min?Number(state.min).toLocaleString('id-ID'):''}"`)}
-        ${field('Harga maksimum','max',`data-price inputmode="numeric" pattern="[0-9.]+" placeholder="Tanpa batas" value="${state.max?Number(state.max).toLocaleString('id-ID'):''}"`)}
-      </div></fieldset>
+        ${field('Harga minimum','min',`data-price inputmode="numeric" pattern="[0-9.]+" placeholder="Rp0" aria-describedby="filter-price-error" value="${state.min?Number(state.min).toLocaleString('id-ID'):''}"`)}
+        ${field('Harga maksimum','max',`data-price inputmode="numeric" pattern="[0-9.]+" placeholder="Tanpa batas" aria-describedby="filter-price-error" value="${state.max?Number(state.max).toLocaleString('id-ID'):''}"`)}
+      </div><p id="filter-price-error" class="filter-price-error" role="alert"></p></fieldset>
       <label class="field">Bintang minimum<select name="stars">${[0,1,2,3,4,5].map(n=>`<option value="${n}" ${n===Number(state.stars)?'selected':''}>${n?`${n}★ ke atas`:'Semua rating'}</option>`).join('')}</select></label>
     </div>
     <div class="filter-footer">${action('reset','Reset filter','btn')}${submit('Terapkan filter')}</div>
@@ -888,6 +910,7 @@ document.addEventListener('input',(e)=>{
   }
   if(input.name==='brand'&&input.form?.dataset.form==='product'){showBrands(input);return}
   if(!input.matches('[data-price]'))return
+  if(input.form?.dataset.form==='filters')filterPriceError(input.form)
   const before=input.value.slice(0,input.selectionStart).replace(/\D/g,'').length
   const digits=input.value.replace(/\D/g,'')
   input.value=digits.replace(/\B(?=(\d{3})+(?!\d))/g,'.')
@@ -1009,6 +1032,15 @@ document.addEventListener('click',(e)=>{
     toast('Jam ditambahkan ke keranjang.')
   }
   if(name==='remove')delete state.cart[id]
+  if(name==='remove-filter'){
+    if(id==='brand')state.brands=state.brands.filter(brand=>brand!==trigger.dataset.value)
+    if(id==='price'){state.min='';state.max=''}
+    if(id==='stars')state.stars=0
+    if(id==='query')state.query=''
+    render()
+    $('[data-action="filter"]')?.focus({preventScroll:true})
+    return
+  }
   if(name==='reset'){
     Object.assign(state,{brands:[],min:'',max:'',stars:0,query:''})
     $('#search input').value=''
@@ -1062,16 +1094,15 @@ document.addEventListener('submit',async(e)=>{
     const maxValue=value.max.replace(/\D/g,'')
     for(const [name,amount] of [['min',minValue],['max',maxValue]]){
       if(amount&&!Number.isSafeInteger(Number(amount))){
-        const input=form.elements[name]
-        input.setCustomValidity('Masukkan harga yang valid.')
-        input.reportValidity()
-        input.setCustomValidity('')
+        filterPriceError(form,form.elements[name],'Masukkan harga yang lebih kecil.')
         return
       }
     }
-    const max=form.elements.max
-    if(maxValue && Number(maxValue)<Number(minValue)){max.setCustomValidity('Harga maksimum harus sama atau lebih besar.');max.reportValidity();max.setCustomValidity('');return}
-    Object.assign(state,{brands:data.getAll('brand'),min:minValue,max:maxValue,stars:value.stars,sort:value.sort})
+    if(maxValue && Number(maxValue)<Number(minValue)){
+      filterPriceError(form,form.elements.max,'Harga maksimum harus sama dengan atau lebih besar dari harga minimum.')
+      return
+    }
+    Object.assign(state,{brands:data.getAll('brand'),min:minValue,max:maxValue,stars:Number(value.stars),sort:value.sort})
     $('#sheet').close();render()
     $('[data-action="filter"]')?.focus({preventScroll:true})
   }
