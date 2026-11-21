@@ -413,9 +413,10 @@ function productList() {
     (!state.min || item.price>=Number(state.min)) && (!state.max || item.price<=Number(state.max)) &&
     item.rating>=Number(state.stars) && terms.every(term=>brandKey([item.brand,item.name,item.reference,item.brand==='Grand Seiko'?'GS':''].join(' ')).includes(term))
   ).sort(sorters[state.sort][1])
+  const hasFilters=Boolean(state.brands.length||state.min||state.max||state.stars)
   const tags=[...state.brands,state.min||state.max?`${state.min?rupiah(state.min):'Rp0'} – ${state.max?rupiah(state.max):'Bebas'}`:'',state.stars?`Minimal ${state.stars} bintang`:'',state.query?`“${state.query}”`:''].filter(Boolean)
-  return `<header class="catalog-heading"><h1>Katalog jam</h1><span>${items.length} produk</span></header>
-  <div class="filters-bar">${action('filter',icon('filter')+'Filter')}
+  return `<header class="catalog-heading"><h1>Katalog jam</h1><span id="catalog-count">${items.length} produk</span></header>
+  <div class="filters-bar"><button type="button" class="btn${hasFilters?' filter-active':''}" data-action="filter" aria-haspopup="dialog" aria-controls="sheet" aria-describedby="catalog-count">${icon('filter')}Filter</button>
     <label class="sort-control"><span>Urutkan</span><select id="sort" class="select" aria-label="Urutkan katalog">${Object.entries(sorters).map(([id,[name]])=>`<option value="${id}" ${id===state.sort?'selected':''}>${name}</option>`).join('')}</select></label>
   </div>
   ${tags.length?`<div class="catalog-tags">${tags.map(tag=>`<span>${safe(tag)}</span>`).join('')}${action('reset','Reset filter','text-btn')}</div>`:''}
@@ -431,16 +432,27 @@ function detail(item) {
   const picture=pictures[selected]
   const reviewEntries=(state.orders||[]).map(order=>order.rated?.[item.id]).filter(Boolean)
   return `${back('katalog','Katalog')}<div class="product-layout">
-  <div class="product-gallery" data-gallery-product="${item.id}">
-    <div class="gallery-main">${picture?img(picture.src,`${item.name} · ${photoLabel(picture,selected,pictures.length)}`,`gallery-photo product-photo ${picture.closeup?'photo-closeup':''}`):'<span>Foto belum tersedia</span>'}</div>
-    ${photoControls(item,pictures,selected,true)}
+    <div class="product-identity">
+      ${link('katalog/brand/'+encodeURIComponent(item.brand),safe(item.brand),'product-brand')}
+      <h1 translate="no">${safe(item.name)}</h1>
+      <p class="product-meta">${[item.movement,item.size].filter(Boolean).map(safe).join(' · ')}</p>
+    </div>
+    <div class="product-gallery" data-gallery-product="${item.id}">
+      <div class="gallery-main">${picture?img(picture.src,`${item.name} · ${photoLabel(picture,selected,pictures.length)}`,`gallery-photo product-photo ${picture.closeup?'photo-closeup':''}`):'<span>Foto belum tersedia</span>'}</div>
+      ${photoControls(item,pictures,selected,true)}
+    </div>
+    <div class="product-purchase">
+      <div class="purchase-line"><strong class="big-price">${rupiah(item.price)}</strong><span class="stock-label">${item.stock?'Tersedia '+item.stock+' unit':'Stok habis'}</span></div>
+      <div class="purchase-actions">
+        ${item.stock?action('cart','Tambah ke keranjang','btn primary',item.id):''}
+        <button type="button" class="btn" aria-pressed="${state.favorites.has(item.id)}" data-action="favorite" data-id="${item.id}">${icon('heart')} ${state.favorites.has(item.id)?'Tersimpan':'Favorit'}</button>
+      </div>
+      <small>Harga dan stok demo.</small>
+    </div>
+    <div class="product-overview">
+      ${item.desc?`<p class="product-description">${safe(item.desc)}</p>`:''}${rating(item)}
+    </div>
   </div>
-  <section class="product-summary"><div class="product-identity">${link('katalog/brand/'+encodeURIComponent(item.brand),safe(item.brand),'product-brand')}<h1>${safe(item.name)}</h1>
-    <p class="product-meta">${[item.movement,item.size].filter(Boolean).map(safe).join(' · ')}</p></div>
-    ${item.desc?`<p class="product-description">${safe(item.desc)}</p>`:''}
-    <div class="product-purchase"><div class="purchase-line"><strong class="big-price">${rupiah(item.price)}</strong><span class="stock-label">${item.stock?'Tersedia '+item.stock+' unit':'Stok habis'}</span></div>
-    <div class="purchase-actions">${item.stock?action('cart','Tambah ke keranjang','btn primary',item.id):''}<button type="button" class="btn" aria-pressed="${state.favorites.has(item.id)}" data-action="favorite" data-id="${item.id}">${icon('heart')} ${state.favorites.has(item.id)?'Tersimpan':'Favorit'}</button></div>
-    <small>Harga dan stok demo.</small></div>${rating(item)}</section></div>
   ${specs.length?`<section class="product-specs" aria-labelledby="spec-title"><h2 id="spec-title">Spesifikasi</h2>
   <dl>${specs.map(([label,value])=>`<div><dt>${label}</dt><dd>${safe(value)}</dd></div>`).join('')}</dl></section>`:''}
   ${reviewEntries.length?`<section class="product-reviews" aria-labelledby="reviews-title"><h2 id="reviews-title">Ulasan pembeli</h2><ul>${reviewEntries.map(({score,text})=>`<li><strong aria-label="${score} dari 5 bintang">${icon('star')} ${score}/5</strong>${text?`<p>${safe(text)}</p>`:''}</li>`).join('')}</ul></section>`:''}`
@@ -758,7 +770,7 @@ function showFilter() {
   const countBrand=brand=>state.products.filter(product=>product.brand===brand).length
   $('#sheet').setAttribute('aria-labelledby','filter-title')
   $('#sheet').innerHTML=`<form class="filter-form" data-form="filters">
-    <div class="filter-header"><div><h2 id="filter-title">Filter katalog</h2><p>Temukan jam sesuai pilihanmu.</p></div>${action('close','Tutup','text-btn')}</div>
+    <div class="filter-header"><h2 id="filter-title">Filter katalog</h2>${action('close','Tutup','text-btn')}</div>
     <div class="filter-content">
       <label class="field">Urutkan berdasarkan<select name="sort" aria-label="Urutkan berdasarkan">${Object.entries(sorters).map(([id,[name]])=>`<option value="${id}"${id===state.sort?' selected':''}>${name}</option>`).join('')}</select></label>
       <fieldset class="filter-section"><legend>Brand</legend>
@@ -1001,6 +1013,9 @@ document.addEventListener('click',(e)=>{
     Object.assign(state,{brands:[],min:'',max:'',stars:0,query:''})
     $('#search input').value=''
     if($('#sheet').open)$('#sheet').close()
+    render()
+    $('[data-action="filter"]')?.focus({preventScroll:true})
+    return
   }
   const order=findOrder(id)
   if(name==='order-next'&&order?.index<2)order.index+=1
@@ -1058,6 +1073,7 @@ document.addEventListener('submit',async(e)=>{
     if(maxValue && Number(maxValue)<Number(minValue)){max.setCustomValidity('Harga maksimum harus sama atau lebih besar.');max.reportValidity();max.setCustomValidity('');return}
     Object.assign(state,{brands:data.getAll('brand'),min:minValue,max:maxValue,stars:value.stars,sort:value.sort})
     $('#sheet').close();render()
+    $('[data-action="filter"]')?.focus({preventScroll:true})
   }
   if(type==='checkout'&&cartItems().length){
     for(const key of ['name','address']){
