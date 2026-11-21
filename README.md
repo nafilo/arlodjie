@@ -1,4 +1,4 @@
-# Arlodjie — Toko Jam Tangan
+# Arlodjie — Toko Jam Tangan Online Berbasis PWA
 
 [File Arlodjie di Figma](https://www.figma.com/design/2DYQzdL0amVGCPX1zc6pG3)
 
