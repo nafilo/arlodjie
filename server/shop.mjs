@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto'
+import { createHash, randomBytes, randomUUID } from 'node:crypto'
 
 const idPattern = /^[a-z0-9-]{1,64}$/
 const uuidPattern = /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/
@@ -42,8 +42,17 @@ function makeSupabase(url, key) {
     const data = await response.json().catch(() => null)
     if (!response.ok) {
       if (response.status === 429) throw new HttpError(429, 'Terlalu banyak permintaan. Coba lagi nanti.')
+      if (path === '/auth/v1/token?grant_type=password' && data?.code === 'email_not_confirmed')
+        throw new HttpError(403, 'Konfirmasi email terlebih dahulu, lalu coba masuk lagi.')
       if (path === '/auth/v1/token?grant_type=password' && [400, 401, 403].includes(response.status))
         throw new HttpError(401, 'Email atau kata sandi tidak cocok.')
+      if (path.startsWith('/auth/v1/signup?')) {
+        if (['user_already_exists', 'email_exists'].includes(data?.code)) return null
+        if (data?.code === 'weak_password') throw new HttpError(400, 'Pilih kata sandi yang lebih kuat.')
+        if (data?.code === 'validation_failed') throw new HttpError(400, 'Periksa email dan kata sandi yang kamu masukkan.')
+        if (data?.code === 'signup_disabled') throw new HttpError(503, 'Pendaftaran pembeli sedang ditutup.')
+        throw new HttpError(502, 'Email konfirmasi belum bisa dikirim. Coba lagi nanti.')
+      }
       if (path === '/auth/v1/user' && [401, 403].includes(response.status)) return null
       if (/^PT(404|409)$/.test(data?.code))
         throw new HttpError(Number(data.code.slice(2)), data.message)
@@ -131,13 +140,46 @@ export async function handle(request, resource) {
       if (method === 'GET') return json({ user: await user() })
       if (method === 'DELETE') return json({ user: null }, 200, { 'Set-Cookie': cookie('', 0) })
       if (method === 'POST') {
-        const { email, password } = await bodyAsJson(request) || {}
-        requireValue(validText(email, 254) && !!email && validText(password, 256) && !!password)
-        const session = await api('/auth/v1/token?grant_type=password', { method, body: { email, password } })
-        return json({ user: identity(session.user) }, 200, {
+        const { email, password, portal = 'buyer' } = await bodyAsJson(request) || {}
+        requireValue(validText(email, 254) && !!email.trim() && validText(password, 256) && !!password)
+        requireValue(['buyer', 'admin'].includes(portal))
+        const session = await api('/auth/v1/token?grant_type=password', { method, body: { email: email.trim(), password } })
+        const account = identity(session.user)
+        requireValue(account && account.admin === (portal === 'admin'),
+          portal === 'admin' ? 'Halaman ini khusus akun admin.' : 'Gunakan halaman masuk admin untuk akun ini.', 403)
+        return json({ user: account }, 200, {
           'Set-Cookie': cookie(session.access_token, session.expires_in),
         })
       }
+    }
+
+    if (resource === 'register') {
+      if (method === 'GET') {
+        const confirmed = url.searchParams.has('code') && !url.searchParams.has('error')
+        return new Response(null, { status: 303, headers: {
+          Location: confirmed ? '/#masuk/email-terverifikasi' : '/#masuk/periksa-email',
+          'Cache-Control': 'no-store',
+          'Referrer-Policy': 'no-referrer',
+        } })
+      }
+      if (method === 'POST') {
+        const { email, password } = await bodyAsJson(request) || {}
+        requireValue(validText(email, 254) && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()), 'Masukkan email yang valid.')
+        requireValue(typeof password === 'string' && password.length >= 8 && Buffer.byteLength(password) <= 72,
+          'Gunakan kata sandi minimal 8 karakter dan maksimal 72 byte.')
+        const settings = await api('/auth/v1/settings')
+        requireValue(!settings?.disable_signup, 'Pendaftaran pembeli sedang ditutup.', 503)
+        requireValue(settings?.mailer_autoconfirm === false, 'Aktifkan konfirmasi email untuk pendaftaran pembeli.', 503)
+        // Verify the email without exchanging the callback code for a session.
+        const codeChallenge = createHash('sha256').update(randomBytes(32)).digest('base64url')
+        const redirect = new URL('/api/register', url.origin)
+        const result = await api('/auth/v1/signup?redirect_to=' + encodeURIComponent(redirect.href), {
+          method, body: { email: email.trim(), password, code_challenge: codeChallenge, code_challenge_method: 's256' },
+        })
+        requireValue(!result?.access_token, 'Aktifkan konfirmasi email untuk pendaftaran pembeli.', 503)
+        return json({ verificationRequired: true }, 202)
+      }
+      return json({ error: 'Metode tidak tersedia.' }, 405)
     }
 
     if (resource === 'products' && method === 'GET') {
@@ -159,12 +201,14 @@ export async function handle(request, resource) {
     if (resource === 'orders') {
       if (method === 'GET') {
         const scope = url.searchParams.get('scope')
-        if (scope === 'admin') requireValue(actor.admin, 'Akses khusus admin.', 403)
+        requireValue(actor.admin === (scope === 'admin'),
+          actor.admin ? 'Buka daftar pesanan di panel admin.' : 'Akses khusus admin.', 403)
         const filter = scope === 'admin' ? '' : '&buyer=eq.' + actor.id
         const rows = await rest('arlodjie_orders?select=data&order=created_at.desc' + filter)
         return json(rows.map(row => row.data))
       }
       if (method === 'POST') {
+        requireValue(!actor.admin, 'Hanya akun pembeli yang bisa membuat pesanan.', 403)
         const { id, name, address, items } = await bodyAsJson(request) || {}
         requireValue(validId(id, uuidPattern) && validText(name, 100) && name.trim() &&
           validText(address, 500) && address.trim() && items && typeof items === 'object' && !Array.isArray(items))
@@ -178,13 +222,15 @@ export async function handle(request, resource) {
       if (method === 'PATCH') {
         const { id, expected } = await bodyAsJson(request) || {}
         requireValue(validId(id, uuidPattern) && integer(expected, 0, 2))
-        if (expected < 2) requireValue(actor.admin, 'Akses khusus admin.', 403)
+        requireValue(actor.admin === (expected < 2),
+          expected < 2 ? 'Akses khusus admin.' : 'Hanya pembeli yang bisa menandai pesanan diterima.', 403)
         return json(await rpc('advance', {
           order_id: id, actor: actor.id, is_admin: actor.admin, expected,
         }))
       }
     }
     if (resource === 'review' && method === 'PUT') {
+      requireValue(!actor.admin, 'Hanya pembeli yang bisa memberi ulasan.', 403)
       const { order, product, score, text } = await bodyAsJson(request) || {}
       requireValue(validId(order, uuidPattern) && validId(product) &&
         integer(score, 1, 5) && validText(text, 500))
