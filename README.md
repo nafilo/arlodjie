@@ -2,6 +2,8 @@
 
 [File Arlodjie di Figma](https://www.figma.com/design/2DYQzdL0amVGCPX1zc6pG3)
 
+Lihat [Panduan deploy PWA](DEPLOY.md) untuk konfigurasi Supabase, API Arlodjie, dan Vercel Hobby.
+
 Buka `index.html` untuk mencoba prototipe. Harga, stok, dan transaksi bersifat demonstrasi. Perubahan tersimpan di browser yang sama.
 
 - **Belanja.** Pilih jam, checkout, buka **Akun → Panel admin → Pesanan**, konfirmasi dan tandai dikirim. Buka **Akun → Riwayat Pesanan**, terima pesanan, lalu beri rating.

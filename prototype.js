@@ -269,16 +269,25 @@ const specRows=[
 ]
 const state = { products:structuredClone(demo), favorites:new Set(), cart:{}, orders:[], get order(){return this.orders[0]}, query:'', sort:'sold', brands:[], min:'', max:'', stars:0, slide:0, playing:!matchMedia('(prefers-reduced-motion: reduce)').matches }
 const profile = { name:'', email:'', photo:'' }
-const profileStorageKey = 'arlodjie.profile.v1'
-try {
-  const saved = JSON.parse(localStorage.getItem(profileStorageKey))
-  if (typeof saved?.name === 'string' && typeof saved.email === 'string') {
-    profile.name = saved.name
-    profile.email = saved.email
-    if (/^data:image\/(webp|png|jpeg);base64,/.test(saved.photo)) profile.photo = saved.photo
+let shopUser = null
+let shopReturn = 'akun'
+let catalogUnavailable = false
+let orderListUnavailable = false
+let adminOrderList = []
+const browserKey = key => shopApi.enabled ? key+'.online.'+(shopUser?.id||'visitor') : key
+const profileStorageKey = () => browserKey('arlodjie.profile.v1')
+function loadProfile() {
+  Object.assign(profile,{name:'',email:shopUser?.email||'',photo:''})
+  try {
+    const saved = JSON.parse(localStorage.getItem(profileStorageKey()))
+    if (typeof saved?.name === 'string' && typeof saved.email === 'string') {
+      profile.name = saved.name
+      profile.email = saved.email
+      if (/^data:image\/(webp|png|jpeg);base64,/.test(saved.photo)) profile.photo = saved.photo
+    }
+  } catch {
+    // The storefront can still run if browser storage is blocked.
   }
-} catch {
-  // Reading may be unavailable when the browser is opened in private mode.
 }
 let profilePhotoDraft = ''
 let profilePhotoRevision = 0
@@ -295,7 +304,7 @@ const draftUrls = new Set()
 const draftFiles = new Map()
 const photoKeyByUrl = new Map()
 const urlByPhotoKey = new Map()
-const commerceKey = 'arlodjie.shop.v1'
+const commerceKey = () => browserKey('arlodjie.shop.v1')
 let savedCommerceRecord = null
 
 async function restoreCommerce(record) {
@@ -325,8 +334,13 @@ async function restoreCommerce(record) {
 }
 
 function saveCommerce() {
+  const key=commerceKey()
   try {
-    const latest=localStorage.getItem(commerceKey)
+    if(shopApi.enabled){
+      localStorage.setItem(key,JSON.stringify({cart:state.cart,favorites:[...state.favorites]}))
+      return true
+    }
+    const latest=localStorage.getItem(key)
     if(latest!==savedCommerceRecord){
       restoreCommerce(latest).then(()=>render())
       toast('Data toko berubah di tab lain. Periksa kembali sebelum mencoba lagi.')
@@ -335,15 +349,73 @@ function saveCommerce() {
     const {products,cart,orders,favorites}=state
     const record=JSON.stringify({products,cart,orders,favorites:[...favorites]},(field,value)=>
       field==='img'||field==='src'?photoKeyByUrl.get(value)||value:value)
-    localStorage.setItem(commerceKey,record)
+    localStorage.setItem(key,record)
     savedCommerceRecord=record
     return true
   } catch {
-    restoreCommerce(savedCommerceRecord)
+    if(!shopApi.enabled)restoreCommerce(savedCommerceRecord)
     toast('Penyimpanan browser penuh atau dibatasi. Perubahan belum tersimpan.')
     return false
   }
 }
+function loadBasket() {
+  let saved = null
+  try { saved = JSON.parse(localStorage.getItem(commerceKey())) } catch { /* Browser storage is optional. */ }
+  state.cart=saved?.cart||{}
+  state.favorites=new Set(saved?.favorites||[])
+}
+function reconcileBasket() {
+  state.favorites=new Set([...state.favorites].filter(id=>product(id)))
+  state.cart=Object.fromEntries(cartItems().filter(item=>item.stock&&Number.isSafeInteger(item.qty)&&item.qty>0)
+    .map(item=>[item.id,Math.min(item.qty,cartLimit(item))]))
+}
+async function refreshCatalog() {
+  state.products=await shopApi.request('products')
+  catalogUnavailable=false
+  reconcileBasket()
+}
+async function refreshOrders() {
+  orderListUnavailable=false
+  try {
+    const [orders,admin]=await Promise.all([
+      shopUser ? shopApi.request('orders') : [],
+      shopUser?.admin ? shopApi.request('orders?scope=admin') : [],
+    ])
+    state.orders=orders
+    adminOrderList=admin
+  } catch {
+    orderListUnavailable=true
+  }
+}
+function setShopUser(user) {
+  shopUser=user
+  state.orders=[]
+  adminOrderList=[]
+  loadProfile()
+  loadBasket()
+  if(!catalogUnavailable)reconcileBasket()
+}
+async function shopTask(control, task) {
+  if(control.disabled)return
+  control.disabled=true
+  try {
+    await task()
+  } catch(error) {
+    if(error.status===401&&shopUser){
+      shopReturn=location.hash.slice(1)
+      setShopUser(null)
+      location.hash='masuk'
+    } else if(error.status===409){
+      await refreshCatalog().catch(()=>{})
+      await refreshOrders()
+      if(!control.form)render()
+    }
+    toast(error.message)
+  } finally {
+    control.disabled=false
+  }
+}
+const canAdmin = () => !shopApi.enabled || shopUser?.admin
 const link = (to, label, cls='btn') => `<a class="${cls}" href="#${to}">${label}</a>`
 const action = (name, label, cls='btn', id='') => `<button type="button" class="${cls}" data-action="${name}" data-id="${safe(id)}">${label}</button>`
 const heading = (title, desc='') => `<header class="heading"><h1>${title}</h1>${desc ? `<p>${desc}</p>` : ''}</header>`
@@ -448,7 +520,7 @@ function detail(item) {
   const pictures=photosFor(item)
   const selected=selectedPhotoIndex(item,pictures)
   const picture=pictures[selected]
-  const reviewEntries=(state.orders||[]).map(order=>order.rated?.[item.id]).filter(Boolean)
+  const reviewEntries=shopApi.enabled?item.publicReviews||[]:state.orders.map(order=>order.rated?.[item.id]).filter(Boolean)
   return `${back('katalog','Katalog')}<div class="product-layout">
     <div class="product-identity">
       ${link('katalog/brand/'+encodeURIComponent(item.brand),safe(item.brand),'product-brand')}
@@ -462,7 +534,7 @@ function detail(item) {
     <div class="product-purchase">
       <div class="purchase-line"><strong class="big-price">${rupiah(item.price)}</strong><span class="stock-label">${item.stock?'Tersedia '+item.stock+' unit':'Stok habis'}</span></div>
       <div class="purchase-actions">
-        ${item.stock?action('cart','Tambah ke keranjang','btn primary',item.id):''}
+        ${item.stock?link('checkout/'+item.id,'Beli sekarang','btn primary')+action('cart','Tambah ke keranjang','btn',item.id):''}
         <button type="button" class="btn" aria-pressed="${state.favorites.has(item.id)}" data-action="favorite" data-id="${item.id}">${icon('heart')} ${state.favorites.has(item.id)?'Tersimpan':'Favorit'}</button>
       </div>
       <small>Harga dan stok demo.</small>
@@ -477,23 +549,36 @@ function detail(item) {
 }
 
 const cartItems=()=>Object.entries(state.cart).map(([id,qty])=>({ ...product(id), qty }))
-const subtotal=()=>cartItems().reduce((sum,p)=>sum+p.price*p.qty,0)
+const cartLimit=item=>Math.min(item.stock,shopApi.enabled?50:item.stock)
+const orderTotal=items=>items.reduce((sum,p)=>sum+p.price*p.qty,0)
+const subtotal=()=>orderTotal(cartItems())
+function checkoutItems(directId) {
+  if(!directId)return cartItems()
+  const item=product(directId)
+  return item?[{...item,qty:1}]:[]
+}
 function cart() {
   const items=cartItems()
-  return heading('Keranjang')+(items.length?`<div class="panel surface">${items.map(p=>`<div class="list-row"><div class="row">${img(p.img,p.name,'mini')}<div><a href="#produk/${p.id}"><strong>${safe(p.name)}</strong></a><br><small>${rupiah(p.price)}</small></div></div><div class="row"><input type="number" class="qty" data-qty="${p.id}" min="1" max="${p.stock}" value="${p.qty}" aria-label="Jumlah ${safe(p.name)}">${action('remove','Hapus','text-btn',p.id)}</div></div>`).join('')}<div class="row between"><strong data-cart-subtotal>Subtotal ${rupiah(subtotal())}</strong>${link('checkout','Checkout','btn primary')}</div></div>`:empty('Keranjang kosong','Tambahkan jam dari katalog.',link('katalog','Lihat katalog')))
+  return heading('Keranjang')+(items.length?`<div class="panel surface">${items.map(p=>`<div class="list-row"><div class="row">${img(p.img,p.name,'mini')}<div><a href="#produk/${p.id}"><strong>${safe(p.name)}</strong></a><br><small>${rupiah(p.price)}</small></div></div><div class="row"><input type="number" class="qty" data-qty="${p.id}" min="1" max="${cartLimit(p)}" value="${p.qty}" aria-label="Jumlah ${safe(p.name)}">${action('remove','Hapus','text-btn',p.id)}</div></div>`).join('')}<div class="row between"><strong data-cart-subtotal>Subtotal ${rupiah(subtotal())}</strong>${link('checkout','Checkout','btn primary')}</div></div>`:empty('Keranjang kosong','Tambahkan jam dari katalog.',link('katalog','Lihat katalog')))
 }
 const field = (label,name,attr='',type='text') => `<label class="field">${label}<input name="${name}" type="${type}" ${attr}></label>`
 const area = (label,name,attr='') => `<label class="field">${label}<textarea name="${name}" ${attr}></textarea></label>`
 const submit = (label) => `<button class="btn primary" type="submit">${label}</button>`
-function checkout() {
-  if(!cartItems().length)return cart()
-  return back('keranjang','Keranjang')+heading('Checkout')+`<form class="checkout-layout" data-form="checkout">
+function checkout(directId) {
+  const items=checkoutItems(directId)
+  if(directId&&!items[0]?.stock){
+    return back('katalog','Katalog')+empty('Produk tidak tersedia','Pilih jam lain dari katalog.',link('katalog','Lihat katalog'))
+  }
+  if(!items.length)return cart()
+  if(shopApi.enabled&&!shopUser)return signIn()
+  const returnLink=directId?back('produk/'+directId,'Detail produk'):back('keranjang','Keranjang')
+  return returnLink+heading('Checkout')+`<form class="checkout-layout" data-form="checkout" data-product="${safe(directId||'')}">
     <section class="checkout-shipping"><h2>Pengiriman</h2>
       ${field('Nama penerima','name',`required maxlength="100" autocomplete="name" value="${safe(profile.name)}"`)}
       ${area('Alamat pengiriman','address','required maxlength="500" autocomplete="street-address" rows="3"')}
     </section>
-    <section class="checkout-summary"><h2>Ringkasan pesanan</h2>${orderLines(cartItems())}
-      <div class="checkout-total"><span>Total</span><strong>${rupiah(subtotal())}</strong></div>
+    <section class="checkout-summary"><h2>Ringkasan pesanan</h2>${orderLines(items)}
+      <div class="checkout-total"><span>Total</span><strong>${rupiah(orderTotal(items))}</strong></div>
       <p>Simulasi transfer bank. Pesanan diproses setelah admin mengonfirmasi pembayaran.</p>${submit('Buat pesanan')}
     </section></form>`
 }
@@ -526,6 +611,7 @@ function orderCard(order) {
   </a></li>`
 }
 function orders() {
+  if(orderListUnavailable)return empty('Pesanan belum bisa dimuat','Coba muat ulang halaman saat online.')
   return heading('Riwayat Pesanan')+(state.orders.length?`<ul class="order-history surface">${state.orders.map(orderCard).join('')}</ul>`:empty('Belum ada pesanan','Pesananmu akan tampil di sini.',link('katalog','Belanja')))
 }
 const findOrder = id=>id?state.orders.find(o=>o.id===id):state.order
@@ -553,6 +639,7 @@ function review(id) {
 }
 
 function account() {
+  if(shopApi.enabled&&!shopUser)return signIn()
   const name=profile.name||'Pengunjung'
   const orderCount=state.orders.length
   return `<div class="account-layout">${heading('Akun Saya')}
@@ -562,18 +649,25 @@ function account() {
         <h2>${safe(name)}</h2>
         ${profile.email?`<p>${safe(profile.email)}</p>`:''}
       </div>
-      ${link('profil','Edit profil','btn primary')}
+      <div class="row">${link('profil','Edit profil','btn primary')}${shopApi.enabled?action('sign-out','Keluar','btn'):''}</div>
     </section>
     <div class="account-menus">
       <nav class="account-menu panel" aria-label="Belanja">
         <a href="#pesanan" class="account-link"><span class="account-icon">${icon('cart')}</span><span><strong>Riwayat Pesanan</strong><small>${orderCount?`${orderCount} pesanan`:'Belum ada pesanan'}</small></span><span class="account-chevron" aria-hidden="true">${icon('back')}</span></a>
         <a href="#favorit" class="account-link"><span class="account-icon">${icon('heart')}</span><span><strong>Favorit</strong><small>${state.favorites.size} jam tersimpan</small></span><span class="account-chevron" aria-hidden="true">${icon('back')}</span></a>
       </nav>
-      <nav class="account-menu panel" aria-label="Toko">
-        <a href="#admin" class="account-link"><span class="account-icon">${icon('grid')}</span><span><strong>Panel admin</strong><small>Akses demo</small></span><span class="account-chevron" aria-hidden="true">${icon('back')}</span></a>
-      </nav>
+      ${canAdmin()?`<nav class="account-menu panel" aria-label="Toko">
+        <a href="#admin" class="account-link"><span class="account-icon">${icon('grid')}</span><span><strong>Panel admin</strong>${shopApi.enabled?'':'<small>Akses demo</small>'}</span><span class="account-chevron" aria-hidden="true">${icon('back')}</span></a>
+      </nav>`:''}
     </div>
   </div>`
+}
+function signIn() {
+  return heading('Masuk ke Arlodjie','Masuk untuk membuat pesanan dan melihat riwayat belanja.')+`<form class="panel form" data-form="sign-in">
+    ${field('Email','email','required maxlength="254" autocomplete="username"','email')}
+    ${field('Kata sandi','password','required maxlength="256" autocomplete="current-password"','password')}
+    ${submit('Masuk')}
+  </form>`
 }
 function profileAvatar(photo) {
   if(photo)return img(photo,'')
@@ -718,7 +812,8 @@ function adminForm(item) {
     </form>`)
 }
 function adminOrders() {
-  return adminShell('admin/pesanan',`<h2>Pesanan</h2>${state.orders.length?state.orders.map(o=>`<section class="admin-order stack"><div class="row between"><h3>Pesanan #${o.id}</h3>${badge(orderSteps[o.index])}</div><div><strong>${safe(o.name)}</strong><p>${safe(o.address)}</p></div>${orderLines(o.items)}<strong>Total ${rupiah(o.total)}</strong>${o.index<2?action('order-next',o.index===0?'Konfirmasi pembayaran':'Tandai dikirim','btn primary',o.id):''}</section>`).join(''):'<p>Belum ada pesanan.</p>'}`)
+  const orders=shopApi.enabled?adminOrderList:state.orders
+  return adminShell('admin/pesanan',`<h2>Pesanan</h2>${orderListUnavailable?'<p>Pesanan belum bisa dimuat. Coba muat ulang halaman saat online.</p>':orders.length?orders.map(o=>`<section class="admin-order stack"><div class="row between"><h3>Pesanan #${safe(o.id)}</h3>${badge(orderSteps[o.index])}</div><div><strong>${safe(o.name)}</strong><p>${safe(o.address)}</p></div>${orderLines(o.items)}<strong>Total ${rupiah(o.total)}</strong>${o.index<2?action('order-next',o.index===0?'Konfirmasi pembayaran':'Tandai dikirim','btn primary',o.id):''}</section>`).join(''):'<p>Belum ada pesanan.</p>'}`)
 }
 function about() {
   return heading('About Us')+`<article class="about-store">
@@ -737,6 +832,7 @@ function missingPage(title,route,label) {
   return heading(title)+link(route,label,'btn')
 }
 function adminPage(section,id) {
+  if(!canAdmin())return empty('Akses khusus admin','Masuk menggunakan akun admin untuk mengelola toko.',link('akun','Akun Saya'))
   if(!section)return adminProducts()
   if(section==='tambah')return adminForm()
   if(section==='pesanan')return adminOrders()
@@ -760,9 +856,13 @@ function render(scroll=false) {
   }
   active=location.hash
   $('#search input').value=state.query
-  const views={beranda:home,katalog:productList,produk:()=>detail(product(id)),keranjang:cart,checkout,pesanan:orders,'detail-pesanan':orderDetail,ulasan:()=>review(id),akun:account,profil:editProfile,tentang:about,admin:()=>adminPage(id,sub),favorit:()=>heading('Favorit')+(state.favorites.size?grid([...state.favorites].map(product)):empty('Belum ada favorit','Simpan jam lewat ikon hati.',link('katalog','Lihat katalog')))}
+  const views={beranda:home,katalog:productList,produk:()=>detail(product(id)),keranjang:cart,checkout:()=>checkout(id),pesanan:orders,'detail-pesanan':orderDetail,ulasan:()=>review(id),akun:account,profil:editProfile,tentang:about,admin:()=>adminPage(id,sub),masuk:()=>shopUser?account():signIn(),favorit:()=>heading('Favorit')+(state.favorites.size?grid([...state.favorites].map(product).filter(Boolean)):empty('Belum ada favorit','Simpan jam lewat ikon hati.',link('katalog','Lihat katalog')))}
   const main=$('#main')
-  main.innerHTML=Object.hasOwn(views,page)?views[page]():missingPage('Halaman tidak ditemukan','beranda','Kembali ke beranda')
+  const needsLogin=shopApi.enabled&&!shopUser&&['pesanan','detail-pesanan','ulasan','profil','admin','checkout'].includes(page)
+  if(needsLogin)shopReturn=location.hash.slice(1)
+  main.innerHTML=needsLogin?signIn():Object.hasOwn(views,page)?views[page]():missingPage('Halaman tidak ditemukan','beranda','Kembali ke beranda')
+  if(catalogUnavailable&&['beranda','katalog','produk','checkout'].includes(page))
+    main.insertAdjacentHTML('afterbegin','<p class="panel" role="status">Katalog belum bisa dimuat. Periksa koneksi lalu muat ulang halaman.</p>')
   const title=page==='beranda'?'Toko Jam Tangan':main.querySelector('h1,h2')?.textContent||'Toko Jam Tangan'
   document.title=title+' · Arlodjie'
   const tab=page==='produk'?'katalog':['profil','pesanan','detail-pesanan','ulasan','favorit','admin'].includes(page)?'akun':page
@@ -840,7 +940,14 @@ $('#search').addEventListener('submit',(e)=>{
   if(location.hash==='#katalog')render()
   else location.hash='katalog'
 })
-window.addEventListener('hashchange',()=>render(true))
+window.addEventListener('hashchange',async()=>{
+  const route=location.hash
+  if(shopApi.enabled&&shopUser&&/^#(?:pesanan|detail-pesanan\/|ulasan\/|admin\/pesanan)/.test(route)){
+    await refreshOrders()
+    if(location.hash!==route)return
+  }
+  render(true)
+})
 const brandKey = value => value.toLowerCase().replace(/[\s-]/g,'')
 function suggestedBrands() {
   const brands = new Map()
@@ -937,7 +1044,7 @@ document.addEventListener('change',(e)=>{
   }
   if(t.id==='sort'){state.sort=t.value;render();$('#sort')?.focus({preventScroll:true})}
   if(t.dataset.qty){
-    const stock=product(t.dataset.qty).stock
+    const stock=cartLimit(product(t.dataset.qty))
     const qty=Math.max(1,Math.min(stock,Math.trunc(Number(t.value))||1))
     if(stock)state.cart[t.dataset.qty]=qty
     else delete state.cart[t.dataset.qty]
@@ -974,6 +1081,15 @@ document.addEventListener('click',(e)=>{
   const trigger=e.target.closest('[data-action]')
   if(!trigger)return
   const {action:name,id}=trigger.dataset
+  if(name==='sign-out'){
+    shopTask(trigger,async()=>{
+      await shopApi.request('session','DELETE')
+      setShopUser(null)
+      shopReturn='akun'
+      render()
+    })
+    return
+  }
   if(name==='remove-profile-photo'){
     profilePhotoRevision++
     trigger.form.querySelector('[type="submit"]').disabled=false
@@ -988,6 +1104,18 @@ document.addEventListener('click',(e)=>{
   if(name==='delete-product'){
     $('#sheet').close()
     if(!product(id))return
+    if(shopApi.enabled){
+      shopTask(trigger,async()=>{
+        await shopApi.request('products?id='+encodeURIComponent(id),'DELETE')
+        state.products=state.products.filter(item=>item.id!==id)
+        reconcileBasket()
+        saveCommerce()
+        photoSelections.delete(id)
+        location.hash='admin'
+        toast('Produk dihapus dari katalog.')
+      })
+      return
+    }
     state.products=state.products.filter(item=>item.id!==id)
     state.favorites.delete(id)
     delete state.cart[id]
@@ -1025,13 +1153,13 @@ document.addEventListener('click',(e)=>{
   }
   if(name==='favorite'){
     const item=product(id)
-    if(state.favorites.has(id)){state.favorites.delete(id);item.popularity-=1}
-    else {state.favorites.add(id);item.popularity+=1}
+    if(state.favorites.has(id)){state.favorites.delete(id);if(!shopApi.enabled)item.popularity-=1}
+    else {state.favorites.add(id);if(!shopApi.enabled)item.popularity+=1}
     toast(state.favorites.has(id)?'Jam disimpan ke favorit.':'Jam dihapus dari favorit.')
   }
   if(name==='cart'){
     const item=product(id)
-    if((state.cart[id]||0)>=item.stock){toast('Jumlah mencapai stok yang tersedia.');return}
+    if((state.cart[id]||0)>=cartLimit(item)){toast('Jumlah mencapai batas pesanan atau stok yang tersedia.');return}
     state.cart[id]=(state.cart[id]||0)+1
     toast('Jam ditambahkan ke keranjang.')
   }
@@ -1051,6 +1179,19 @@ document.addEventListener('click',(e)=>{
     if($('#sheet').open)$('#sheet').close()
     render()
     $('[data-action="filter"]')?.focus({preventScroll:true})
+    return
+  }
+  if(shopApi.enabled&&['order-next','receive'].includes(name)){
+    const order=name==='order-next'?adminOrderList.find(item=>item.id===id):findOrder(id)
+    if(!order)return
+    shopTask(trigger,async()=>{
+      const updated=await shopApi.request('orders','PATCH',{id,expected:order.index})
+      const replace=orders=>orders.map(item=>item.id===id?updated:item)
+      state.orders=replace(state.orders)
+      adminOrderList=replace(adminOrderList)
+      if(name==='receive')await refreshCatalog().catch(()=>{})
+      render()
+    })
     return
   }
   const order=findOrder(id)
@@ -1078,13 +1219,35 @@ document.addEventListener('submit',async(e)=>{
   e.preventDefault()
   const data=new FormData(form)
   const value=Object.fromEntries(data)
+  if(type==='sign-in'){
+    if(!shopApi.enabled)return
+    shopTask(form.querySelector('[type="submit"]'),async()=>{
+      const {user}=await shopApi.request('session','POST',{email:value.email.trim(),password:value.password})
+      const guestKey=commerceKey()
+      const guestCart=state.cart
+      const guestFavorites=state.favorites
+      setShopUser(user)
+      for(const [id,qty] of Object.entries(guestCart))state.cart[id]=Math.max(state.cart[id]||0,qty)
+      for(const id of guestFavorites)state.favorites.add(id)
+      if(!catalogUnavailable)reconcileBasket()
+      if(saveCommerce()){
+        try {localStorage.removeItem(guestKey)} catch { /* Guest items may remain in browser storage. */ }
+      }
+      await refreshOrders()
+      const destination=shopReturn
+      shopReturn='akun'
+      if(location.hash==='#'+destination)render(true)
+      else location.hash=destination
+    })
+    return
+  }
   if(type==='profile'){
     const name=value.name.trim()
     if(!name){form.elements.name.setCustomValidity('Masukkan nama.');form.elements.name.reportValidity();form.elements.name.setCustomValidity('');return}
     if(form.querySelector('[type="submit"]').disabled)return
     const nextProfile={name,email:value.email.trim(),photo:profilePhotoDraft}
     try {
-      localStorage.setItem(profileStorageKey,JSON.stringify(nextProfile))
+      localStorage.setItem(profileStorageKey(),JSON.stringify(nextProfile))
     } catch {
       toast('Profil belum tersimpan. Periksa ruang penyimpanan atau izin browser.')
       return
@@ -1110,7 +1273,15 @@ document.addEventListener('submit',async(e)=>{
     $('#sheet').close();render()
     $('[data-action="filter"]')?.focus({preventScroll:true})
   }
-  if(type==='checkout'&&cartItems().length){
+  if(type==='checkout'){
+    const directId=form.dataset.product
+    const items=checkoutItems(directId)
+    if(directId&&!items[0]?.stock){
+      render()
+      $('#main').focus({preventScroll:true})
+      return
+    }
+    if(!items.length)return
     for(const key of ['name','address']){
       value[key]=value[key].trim()
       if(!value[key]){
@@ -1119,7 +1290,25 @@ document.addEventListener('submit',async(e)=>{
         input.reportValidity();input.setCustomValidity('');return
       }
     }
-    const items=cartItems()
+    if(shopApi.enabled){
+      shopTask(form.querySelector('[type="submit"]'),async()=>{
+        form.dataset.requestId||=crypto.randomUUID()
+        const order=await shopApi.request('orders','POST',{
+          id:form.dataset.requestId,
+          name:value.name,address:value.address,items:Object.fromEntries(items.map(item=>[item.id,item.qty])),
+        })
+        if(!directId)for(const item of order.items)delete state.cart[item.id]
+        state.orders=[order,...state.orders.filter(item=>item.id!==order.id)]
+        for(const line of order.items){
+          const item=product(line.id)
+          if(item)item.stock=Math.max(0,item.stock-line.qty)
+        }
+        reconcileBasket()
+        saveCommerce()
+        location.hash='detail-pesanan/'+order.id
+      })
+      return
+    }
     for(const item of items){
       if(!Number.isSafeInteger(item.qty)||item.qty<1||item.qty>item.stock){
         if(item.stock)state.cart[item.id]=Math.min(item.stock,Math.max(1,Math.trunc(item.qty)||1))
@@ -1130,9 +1319,14 @@ document.addEventListener('submit',async(e)=>{
     }
     const id='ARL-'+String(state.orders.length+1).padStart(3,'0')
     const purchased=items.map(({id,name,img,price,qty})=>({id,name,img,price,qty}))
-    state.orders.unshift({id,createdAt:new Date().toISOString(),name:value.name,address:value.address,index:0,items:purchased,total:subtotal(),rated:{}})
+    state.orders.unshift({id,createdAt:new Date().toISOString(),name:value.name,address:value.address,index:0,items:purchased,total:orderTotal(items),rated:{}})
     for(const p of items)product(p.id).stock-=p.qty
-    state.cart={}
+    if(!directId)state.cart={}
+    else if(state.cart[directId]>product(directId).stock){
+      const stock=product(directId).stock
+      if(stock)state.cart[directId]=stock
+      else delete state.cart[directId]
+    }
     if(saveCommerce())location.hash='detail-pesanan/'+id
   }
   if(type==='review'){
@@ -1142,6 +1336,16 @@ document.addEventListener('submit',async(e)=>{
     const previous=order.rated[item.id]
     const score=Number(value.stars)
     if(!Number.isInteger(score)||score<1||score>5)return
+    if(shopApi.enabled){
+      shopTask(form.querySelector('[type="submit"]'),async()=>{
+        const updated=await shopApi.request('review','PUT',{order:order.id,product:item.id,score,text:value.review.trim()})
+        state.orders=state.orders.map(entry=>entry.id===order.id?updated:entry)
+        await refreshCatalog().catch(()=>{})
+        location.hash='detail-pesanan/'+order.id
+        toast('Ulasan tersimpan.')
+      })
+      return
+    }
     const total=item.rating*item.reviews-(previous?.score||0)+score
     if(!previous)item.reviews+=1
     item.rating=total/item.reviews
@@ -1175,7 +1379,7 @@ document.addEventListener('submit',async(e)=>{
     }
     const pictures=[...draftPhotos]
     const newFiles=pictures.filter(p=>draftFiles.has(p.src)&&!photoKeyByUrl.has(p.src))
-    if(newFiles.length){
+    if(newFiles.length&&!shopApi.enabled){
       const button=form.querySelector('[type="submit"]')
       form.dataset.saving='true'
       form.inert=true
@@ -1217,6 +1421,31 @@ document.addEventListener('submit',async(e)=>{
       img:pictures[0].src,
       photos:pictures,
     }
+    if(shopApi.enabled){
+      shopTask(form.querySelector('[type="submit"]'),async()=>{
+        form.inert=true
+        try {
+          for(const picture of pictures){
+            if(draftFiles.has(picture.src))picture.src=await shopApi.upload(draftFiles.get(picture.src))
+          }
+          fields.img=pictures[0].src
+          const id=item?.id||crypto.randomUUID()
+          await shopApi.request('products','PUT',{...fields,id,expectedStock:item?.stock??null})
+          if(item)Object.assign(item,fields)
+          else state.products.push({...fields,id,rating:0,reviews:0,sold:0,popularity:0})
+          await refreshCatalog().catch(()=>{})
+          reconcileBasket()
+          saveCommerce()
+          photoSelections.delete(id)
+          Object.assign(state,{brands:[],min:'',max:'',stars:0,query:'',sort:'newest'})
+          location.hash='katalog'
+          toast(item?'Produk diperbarui.':'Produk terbit di katalog.')
+        } finally {
+          form.inert=false
+        }
+      })
+      return
+    }
     if(item)Object.assign(item,fields)
     else state.products.push({...fields,id:crypto.randomUUID(),rating:0,reviews:0,sold:0,popularity:0})
     let adjusted=false
@@ -1235,8 +1464,21 @@ document.addEventListener('submit',async(e)=>{
   }
 })
 async function startShop(){
+  if(shopApi.enabled){
+    const [catalog,session,banner]=await Promise.allSettled([
+      shopApi.request('products'),shopApi.request('session'),shopApi.request('banner'),
+    ])
+    catalogUnavailable=catalog.status==='rejected'
+    state.products=catalogUnavailable?[]:catalog.value
+    setShopUser(session.value?.user||null)
+    if(banner.status==='fulfilled')bannerManager.load(banner.value)
+    await refreshOrders()
+    render()
+    return
+  }
+  loadProfile()
   try{
-    await restoreCommerce(localStorage.getItem(commerceKey))
+    await restoreCommerce(localStorage.getItem(commerceKey()))
   }catch{
     toast('Data toko di browser ini belum bisa dibuka.')
   }

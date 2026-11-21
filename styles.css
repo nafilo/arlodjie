@@ -1003,6 +1003,6 @@ main:focus { outline: none; }
   .card .fig { font-size: .94rem; }
   .grid { row-gap: 24px; }
   .catalog-note { margin-top: 22px; }
-  .purchase-actions .primary { flex: 1; }
+  .purchase-actions .primary { flex-basis: 100%; }
   .purchase-actions .btn { padding-inline: 11px; }
 }

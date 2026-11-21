@@ -10,6 +10,7 @@ const bannerManager = (function () {
     ],
   }
   function readSettings() {
+    if(shopApi.enabled)return structuredClone(defaults)
     try {
       const data = JSON.parse(localStorage.getItem(storageKey))
       if (Array.isArray(data?.slides) && data.slides.every(slide => typeof slide?.productId === 'string')) {
@@ -218,19 +219,34 @@ const bannerManager = (function () {
     const stage=document.querySelector('.banner-stage')
     if (slide && stage) stage.innerHTML=slideMarkup(slide,true)
   }
-  function publish() {
+  async function publish() {
     if (uploading) return
     if (draft.slides.some(slide=>slide.active&&!product(slide.productId))) {
       message('Pilih produk yang tersedia untuk setiap slide aktif.',true)
       return
     }
+    const editor=document.querySelector('#banner-editor')
+    if(editor.inert)return
     try {
-      localStorage.setItem(storageKey,JSON.stringify(draft))
-    } catch {
-      message('Banner gagal disimpan. Coba foto unggahan yang lebih kecil atau gunakan foto produk.',true)
+      if(shopApi.enabled){
+        editor.inert=true
+        for(const slide of draft.slides){
+          if(slide.custom?.startsWith('data:')){
+            const blob=await (await fetch(slide.custom)).blob()
+            slide.custom=(await shopApi.request('photos','POST',blob)).url
+          }
+        }
+        published=await shopApi.request('banner','PUT',draft)
+      } else {
+        localStorage.setItem(storageKey,JSON.stringify(draft))
+        published=structuredClone(draft)
+      }
+    } catch(error) {
+      message(shopApi.enabled?error.message:'Banner gagal disimpan. Coba foto unggahan yang lebih kecil atau gunakan foto produk.',true)
       return
+    } finally {
+      editor.inert=false
     }
-    published=structuredClone(draft)
     state.slide=0
     newDraft()
     paint()
@@ -367,5 +383,8 @@ const bannerManager = (function () {
     if (banner) {banner.innerHTML=home();schedule()}
     if (document.querySelector('#banner-editor') && !changed) {newDraft();paint()}
   })
-  return {admin,home,schedule}
+  function load(data) {
+    if(data)published=data
+  }
+  return {admin,home,schedule,load}
 })()
