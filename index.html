@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#FAF7F1">
+  <title>Arlodjie — Toko Jam Tangan</title>
+  <link rel="icon" href="logo.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="assets/app-192.png">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="banner.css">
+  <script defer src="image-file.js"></script>
+  <script defer src="photo-storage.js"></script>
+  <script defer src="banner.js"></script>
+  <script defer src="prototype.js"></script>
+  <script defer src="pwa.js"></script>
+</head>
+<body>
+  <header class="top">
+    <div class="top-inner">
+      <a href="#beranda" class="wordmark"><img src="lockup.svg" alt="Arlodjie" width="130" height="48"></a>
+      <nav class="bottom" aria-label="Navigasi utama" id="nav"></nav>
+      <form id="search" role="search"><input type="search" name="q" placeholder="Cari merek atau model" aria-label="Cari merek atau model"><button class="icon-btn" aria-label="Cari" id="search-btn"></button></form>
+      <div class="top-actions"><a class="icon-btn" id="favorite-link" href="#favorit" aria-label="Favorit"></a><a class="icon-btn" id="cart-link" href="#keranjang" aria-label="Keranjang"></a></div>
+    </div>
+  </header>
+  <main id="main" tabindex="-1"></main>
+  <footer class="store-footer">
+    <a href="#tentang" id="footer-about">About Us</a>
+  </footer>
+  <dialog id="sheet"></dialog>
+  <div id="toast" role="status" aria-live="polite"></div>
+</body>
+</html>
