@@ -789,7 +789,7 @@ main:focus { outline: none; }
   text-decoration: underline;
   text-underline-offset: .2em;
 }
-.featured-watches { margin-top: clamp(28px, 4vw, 54px); }
+.featured-watches { margin-top: clamp(20px, 3vw, 38px); }
 .shelf-heading, .catalog-heading {
   display: flex;
   align-items: baseline;
@@ -797,7 +797,7 @@ main:focus { outline: none; }
   flex-wrap: wrap;
   gap: 8px 20px;
 }
-.shelf-heading { margin-bottom: 13px; }
+.shelf-heading { align-items: center; margin-bottom: 13px; }
 .shelf-heading h2, .product-specs h2, .product-reviews h2 {
   font-size: clamp(2rem, 3.3vw, 3rem);
   line-height: 1.07;

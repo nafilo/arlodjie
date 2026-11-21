@@ -1,27 +1,29 @@
 #banner:empty { display: none; }
-#banner { margin-bottom: clamp(24px, 4vw, 46px); }
+#banner { margin-bottom: clamp(20px, 3vw, 38px); }
 .banner-track {
   display: grid;
   overflow: hidden;
   isolation: isolate;
   border-radius: 4px;
-  background: #29251f;
+  background: var(--sand);
 }
 .banner-track > .watch-banner { grid-area: 1 / 1; border-radius: 0; }
 .banner-track > [inert]:not(.is-leaving) { visibility: hidden; }
 .banner-track > .is-entering { z-index: 1; }
 .watch-banner {
   display: grid;
-  grid-template-columns: minmax(0,.9fr) minmax(0,1.1fr);
+  grid-template-columns: minmax(0,1.27fr) minmax(0,1fr);
   min-height: 0;
-  background: #29251f;
-  color: #fff9ec;
+  background: var(--sand);
+  color: var(--ink);
   border-radius: 4px;
   isolation: isolate;
 }
 .watch-banner .hero-body {
+  grid-column: 2;
+  grid-row: 1;
   align-self: center;
-  padding: clamp(24px,4.6vw,74px);
+  padding: clamp(24px,4vw,60px);
   min-width: 0;
   overflow-wrap: anywhere;
 }
@@ -31,7 +33,7 @@
 }
 .banner-brand {
   display: block;
-  color: #e6d0ab;
+  color: var(--brown);
   font-size: .78rem;
   line-height: 1.5;
   font-weight: 650;
@@ -40,26 +42,31 @@
 }
 .watch-banner .banner-title {
   max-width: 14ch;
-  font: 600 clamp(2.6rem,5vw,4.6rem)/.99 "Cormorant Garamond", Georgia, serif;
+  font: 600 clamp(2.6rem,4.6vw,4.45rem)/.94 "Cormorant Garamond", Georgia, serif;
   font-variant-numeric: lining-nums;
   letter-spacing: -.025em;
   margin: 11px 0 0;
 }
-.watch-banner p { max-width: 38ch; color: #e6ded2; margin: 16px 0 20px; }
+.watch-banner p { max-width: 34ch; color: var(--muted); margin: 14px 0 20px; }
 .banner-link {
   display: inline-flex;
   align-items: center;
   gap: 14px;
-  min-height: 40px;
-  border-bottom: 1px solid #a99576;
+  min-height: 44px;
+  padding: 0 15px;
+  border: 1px solid var(--brown);
+  border-radius: 4px;
+  background: var(--brown);
   font-size: .91rem;
   font-weight: 650;
-  color: #fff9ec;
+  color: var(--white);
 }
-a.banner-link:hover { border-color: currentColor; }
+a.banner-link:hover { background: var(--ink); border-color: var(--ink); }
 .banner-image {
+  grid-column: 1;
+  grid-row: 1;
   position: relative;
-  min-height: clamp(320px,31vw,430px);
+  min-height: clamp(310px,29vw,412px);
   background: #fff;
 }
 .banner-image .hero-media {
@@ -75,18 +82,20 @@ a.banner-link:hover { border-color: currentColor; }
 }
 .banner-image.bleed .hero-media { object-fit: cover; padding: 0; }
 .banner-controls {
-  justify-content: flex-end;
-  gap: 4px;
-  margin: 2px 0 0;
+  justify-content: center;
+  gap: 2px;
+  margin: 0;
+  border-bottom: 1px solid var(--line);
 }
-.banner-controls .dot { width: 34px; height: 44px; }
+.banner-controls .dot { width: 44px; height: 44px; }
 .banner-controls .dot::before {
   width: 24px;
   height: 3px;
   border-radius: 0;
   background: #cbbda9;
 }
-.banner-controls .dot[aria-current="true"]::before { width: 24px; border-radius: 0; background: var(--brown); }
+.banner-controls .dot[aria-current="true"]::before,
+.banner-controls .dot:hover::before { width: 24px; border-radius: 0; background: var(--brown); }
 .banner-controls .icon-btn { width: 44px; height: 44px; }
 .banner-editor-header p { margin-top: 7px; max-width: 58ch; }
 .banner-workspace {
@@ -154,7 +163,7 @@ a.banner-link:hover { border-color: currentColor; }
 .banner-stage .banner-brand { font-size: .65rem; }
 .banner-stage .banner-title { font-size: clamp(1.4rem,2.5vw,2.5rem); margin-top: 4px; }
 .banner-stage .watch-banner p { font-size: .8rem; margin: 8px 0; }
-.banner-stage .banner-link { font-size: .75rem; min-height: 25px; }
+.banner-stage .banner-link { font-size: .75rem; min-height: 28px; padding-inline: 8px; }
 .banner-stage .banner-image { min-height: 160px; }
 .banner-settings { display: grid; gap: 12px; padding: 17px 0; border-top: 1px solid var(--line); }
 .banner-selects { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; max-width: 440px; }
@@ -168,10 +177,10 @@ a.banner-link:hover { border-color: currentColor; }
 }
 @media (max-width: 600px) {
   .watch-banner { display: flex; flex-direction: column-reverse; border-radius: 3px; }
-  .banner-image { min-height: 0; height: clamp(175px,53vw,265px); }
-  .watch-banner .hero-body { align-self: stretch; padding: 20px; }
-  .watch-banner .banner-title { font-size: clamp(2.35rem,9.1vw,3.4rem); max-width: 18ch; margin-top: 6px; }
-  .watch-banner p { margin: 10px 0; font-size: .9rem; }
+  .banner-image { min-height: 0; height: clamp(158px,45vw,245px); }
+  .watch-banner .hero-body { align-self: stretch; padding: 17px 18px; }
+  .watch-banner .banner-title { font-size: clamp(2.05rem,8.4vw,3.05rem); max-width: 24ch; margin-top: 5px; }
+  .watch-banner p { margin: 9px 0 11px; font-size: .9rem; }
   .banner-brand { font-size: .7rem; }
   .banner-controls { margin-bottom: 0; }
   .banner-save { align-items: flex-start; }

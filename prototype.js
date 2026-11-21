@@ -395,8 +395,12 @@ function hero() {
 }
 
 function home() {
+  const featuredIds = ['srpe55', 'f91w', 'presage', 'shunbun']
+  const featured = featuredIds.map(product).filter(Boolean)
+  const otherWatches = state.products.filter(item => !featuredIds.includes(item.id))
+  const featuredWatches = [...featured, ...otherWatches].slice(0, 4)
   return `<section id="banner">${hero()}</section>
-    <section class="featured-watches"><div class="shelf-heading"><h2>Jam pilihan</h2>${link('katalog','Lihat katalog'+icon('back'),'shelf-link')}</div>${grid(state.products.slice(0,4))}</section>
+    <section class="featured-watches"><div class="shelf-heading"><h2>Jam pilihan</h2>${link('katalog','Lihat katalog'+icon('back'),'shelf-link')}</div>${grid(featuredWatches)}</section>
     <p class="catalog-note">Harga dan stok adalah data demo.</p>`
 }
 
