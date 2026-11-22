@@ -730,6 +730,7 @@ body > main { flex: 1; }
   align-items: center;
   gap: 8px;
   min-height: 44px;
+  max-width: 12rem;
   padding-inline: 8px;
   border-radius: 5px;
   font-size: .92rem;
@@ -738,6 +739,8 @@ body > main { flex: 1; }
 }
 .header-account:hover, .header-account[aria-current="page"] { background: var(--sand); }
 .header-account svg { width: 19px; }
+.account-nav-label { min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nav-avatar { --avatar-size: 28px; font-size: .75rem; }
 #search { border-radius: 5px; }
 #search:focus-within { border-color: var(--gold); }
 .nav-link { min-height: 48px; }
@@ -808,6 +811,8 @@ body > main { flex: 1; }
   .nav-link { border-radius: 0; font-size: .76rem; }
   .nav-link.active { background: transparent; }
   .nav-link.active svg { stroke-width: 2.2; }
+  .mobile-account { min-width: 0; grid-template-columns: minmax(0, 1fr); }
+  .mobile-account .nav-avatar { --avatar-size: 22px; font-size: .66rem; }
   main { padding-bottom: 36px; }
   .store-footer {
     text-align: center;

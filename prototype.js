@@ -410,7 +410,7 @@ async function shopTask(control, task, message) {
       shopReturn=location.hash.slice(1)
       setShopUser(null)
       location.hash='masuk'
-    } else if(error.status===409){
+    } else if(error.status===409&&!message){
       await refreshCatalog().catch(()=>{})
       await refreshOrders()
       if(!control.form)render()
@@ -657,10 +657,13 @@ function review(id) {
     </form>`
 }
 
+function accountName() {
+  return profile.name.trim()||shopUser?.email?.split('@')[0]||'Pengunjung'
+}
 function account() {
   if(shopApi.enabled&&!shopUser)return signIn()
   if(!shopApi.enabled&&!demoSignedIn)return demoSignIn()
-  const name=profile.name||'Pengunjung'
+  const name=accountName()
   const orderCount=state.orders.length
   return `<div class="account-layout">${heading('Akun Saya')}
     <section class="account-profile panel" aria-label="Profil">
@@ -684,12 +687,8 @@ function account() {
   </div>`
 }
 function signIn(status='') {
-  const notices={
-    'email-terverifikasi':'Email sudah dikonfirmasi. Masuk dengan kata sandimu.',
-    'periksa-email':'Buka tautan konfirmasi terbaru di email sebelum masuk.',
-  }
   return `<div class="auth-shell">${heading('Masuk ke Arlodjie')}
-  ${Object.hasOwn(notices,status)?`<p class="auth-notice" role="status">${notices[status]}</p>`:''}
+  ${status==='akun-dibuat'?'<p class="auth-notice" role="status">Akun berhasil dibuat. Masuk dengan email dan kata sandimu.</p>':''}
   <form class="panel form auth-form" data-form="sign-in">
     ${field('Email','email','required maxlength="254" autocomplete="username"','email')}
     ${field('Kata sandi','password','required maxlength="256" autocomplete="current-password"','password')}
@@ -698,23 +697,22 @@ function signIn(status='') {
   </form>
   <div class="auth-links">${link('daftar','Buat akun','text-btn')}</div></div>`
 }
-function register(status) {
+function register() {
   if(shopUser)return account()
-  return `<div class="auth-shell">${heading(status==='cek-email'?'Cek email kamu':'Buat akun')}
-    ${status==='cek-email'?'<p class="panel">Buka tautan konfirmasi yang dikirim Supabase ke email pendaftaran. Setelah itu, masuk ke Arlodjie. Cek folder Spam jika email belum terlihat.</p>':
-      `<form class="panel form auth-form" data-form="register">
+  return `<div class="auth-shell">${heading('Buat akun')}
+      <form class="panel form auth-form" data-form="register">
         ${field('Email','email','required maxlength="254" autocomplete="username"','email')}
         ${field('Kata sandi','password','required minlength="8" maxlength="72" autocomplete="new-password" aria-describedby="password-help"','password')}
         <p id="password-help">Gunakan minimal 8 karakter.</p>
         <p class="auth-error" data-auth-message role="alert"></p>
         ${submit('Buat akun')}
-      </form>`}
+      </form>
     <div class="auth-links">${link('masuk','Masuk ke akun','text-btn')}</div></div>`
 }
 function profileAvatar(photo) {
   if(photo)return img(photo,'')
-  const initials=profile.name.split(/\s+/).slice(0,2).map(part=>Array.from(part)[0]).join('').toUpperCase()
-  return initials?safe(initials):icon('user')
+  const initials=accountName().split(/\s+/).slice(0,2).map(part=>Array.from(part)[0]).join('').toUpperCase()
+  return safe(initials)
 }
 function editProfile() {
   profilePhotoDraft=profile.photo
@@ -909,7 +907,7 @@ function render(scroll=false) {
   $('.wordmark').href=adminArea?'#admin':'#beranda'
   $('#admin-actions').hidden=!shopUser?.admin
   $('#search input').value=state.query
-  const views={beranda:home,katalog:productList,produk:()=>detail(product(id)),keranjang:cart,checkout:()=>checkout(id),pesanan:orders,'detail-pesanan':orderDetail,ulasan:()=>review(id),akun:account,profil:editProfile,tentang:about,admin:()=>adminPage(id,sub),masuk:()=>!shopApi.enabled||shopUser?account():signIn(id),daftar:()=>shopApi.enabled?register(id):missingPage('Pendaftaran tersedia di versi online','akun','Akun Saya'),favorit:()=>heading('Favorit')+(state.favorites.size?grid([...state.favorites].map(product).filter(Boolean)):empty('Belum ada favorit','Simpan jam lewat ikon hati.',link('katalog','Lihat katalog')))}
+  const views={beranda:home,katalog:productList,produk:()=>detail(product(id)),keranjang:cart,checkout:()=>checkout(id),pesanan:orders,'detail-pesanan':orderDetail,ulasan:()=>review(id),akun:account,profil:editProfile,tentang:about,admin:()=>adminPage(id,sub),masuk:()=>!shopApi.enabled||shopUser?account():signIn(id),daftar:()=>shopApi.enabled?register():missingPage('Pendaftaran tersedia di versi online','akun','Akun Saya'),favorit:()=>heading('Favorit')+(state.favorites.size?grid([...state.favorites].map(product).filter(Boolean)):empty('Belum ada favorit','Simpan jam lewat ikon hati.',link('katalog','Lihat katalog')))}
   const main=$('#main')
   const signedIn=shopApi.enabled?Boolean(shopUser):demoSignedIn
   const privatePage=['pesanan','detail-pesanan','ulasan','profil','checkout'].includes(page)
@@ -923,11 +921,14 @@ function render(scroll=false) {
   const title=page==='beranda'?'Toko Jam Tangan':main.querySelector('h1,h2')?.textContent||'Toko Jam Tangan'
   document.title=title+' · Arlodjie'
   const tab=page==='produk'?'katalog':['profil','pesanan','detail-pesanan','ulasan','favorit','admin','masuk','daftar'].includes(page)?'akun':page
-  $('#nav').innerHTML=navItems.map(([to,label,svg])=>`<a class="nav-link${to==='akun'?' mobile-account':''}${tab===to?' active':''}" href="#${to}" ${tab===to?'aria-current="page"':''}>${icon(svg)}${label}</a>`).join('')
+  const accountLabel=signedIn?accountName():'Akun Saya'
+  const accountPicture=signedIn?`<span class="account-avatar nav-avatar" aria-hidden="true">${profileAvatar(profile.photo)}</span>`:icon('user')
+  const accountContent=accountPicture+`<span class="account-nav-label">${safe(accountLabel)}</span>`
+  $('#nav').innerHTML=navItems.map(([to,label,svg])=>`<a class="nav-link${to==='akun'?' mobile-account':''}${tab===to?' active':''}" href="#${to}" ${tab===to?'aria-current="page"':''}>${to==='akun'?accountContent:icon(svg)+label}</a>`).join('')
   const accountLink=$('#account-link')
-  const guest=!signedIn
-  accountLink.href=guest?'#masuk':'#akun'
-  accountLink.innerHTML=icon('user')+`<span>${guest?(shopApi.enabled?'Masuk atau daftar':'Masuk demo'):'Akun Saya'}</span>`
+  accountLink.href=signedIn?'#akun':'#masuk'
+  accountLink.innerHTML=accountContent
+  accountLink.title=accountLabel
   if(tab==='akun')accountLink.setAttribute('aria-current','page')
   else accountLink.removeAttribute('aria-current')
   if(page==='tentang')$('#footer-about').setAttribute('aria-current','page')
@@ -1303,7 +1304,7 @@ document.addEventListener('submit',async(e)=>{
     if(!shopApi.enabled||shopUser)return
     shopTask(form.querySelector('[type="submit"]'),async()=>{
       await shopApi.request('register','POST',{email:value.email.trim(),password:value.password})
-      if(form.isConnected)location.hash='daftar/cek-email'
+      if(form.isConnected)location.hash='masuk/akun-dibuat'
     },form.querySelector('[data-auth-message]'))
     return
   }

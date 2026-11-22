@@ -77,36 +77,39 @@ test('buyer-controlled metadata cannot grant admin access', async t => {
   assert.equal((await call('orders?scope=admin', { token, method: 'GET' })).status, 403)
 })
 
-test('registration forwards buyer credentials without client role fields', async t => {
-  setup(t, (url, { body }) => {
-    if (url.pathname === '/auth/v1/settings') return Response.json({ mailer_autoconfirm: false })
-    assert.equal(url.pathname, '/auth/v1/signup')
-    assert.equal(url.searchParams.get('redirect_to'), site + '/api/register')
-    const sent = JSON.parse(body)
-    assert.deepEqual(Object.keys(sent).sort(), ['code_challenge', 'code_challenge_method', 'email', 'password'])
-    assert.equal(sent.code_challenge_method, 's256')
-    assert.match(sent.code_challenge, /^[\w-]{43}$/)
+test('registration creates a confirmed buyer through Supabase Auth', async t => {
+  setup(t, (url, { body, headers, method }) => {
+    assert.equal(url.pathname, '/auth/v1/admin/users')
+    assert.equal(url.search, '')
+    assert.equal(method, 'POST')
+    assert.equal(headers.apikey, env.SUPABASE_SECRET_KEY)
+    assert.deepEqual(JSON.parse(body), {
+      email: 'buyer@example.invalid',
+      password: 'test-password',
+      email_confirm: true,
+    })
     return Response.json(account(false))
   })
   const response = await call('register', {
-    body: { email: 'buyer@example.invalid', password: 'test-password', admin: true },
+    body: { email: 'buyer@example.invalid', password: 'test-password', app_metadata: { arlodjie_admin: true } },
   })
-  assert.equal(response.status, 202)
+  assert.equal(response.status, 201)
   assert.equal(response.headers.get('set-cookie'), null)
-  assert.deepEqual(await response.json(), { verificationRequired: true })
+  assert.deepEqual(await response.json(), { created: true })
   const callback = await call('register?code=example', { method: 'GET' })
   assert.equal(callback.status, 303)
-  assert.equal(callback.headers.get('location'), '/#masuk/email-terverifikasi')
+  assert.equal(callback.headers.get('location'), '/#masuk')
 })
 
-test('registration stops before creating an account when email confirmation is off', async t => {
+test('registration does not modify an existing account', async t => {
   let upstreamCalls = 0
-  setup(t, url => {
+  setup(t, (url, { method }) => {
     upstreamCalls += 1
-    assert.equal(url.pathname, '/auth/v1/settings')
-    return Response.json({ mailer_autoconfirm: true })
+    assert.equal(url.pathname, '/auth/v1/admin/users')
+    assert.equal(method, 'POST')
+    return Response.json({ code: 'email_exists' }, { status: 422 })
   })
   const response = await call('register', { body: { email: 'buyer@example.invalid', password: 'test-password' } })
-  assert.equal(response.status, 503)
+  assert.equal(response.status, 409)
   assert.equal(upstreamCalls, 1)
 })

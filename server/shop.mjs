@@ -1,4 +1,4 @@
-import { createHash, randomBytes, randomUUID } from 'node:crypto'
+import { randomUUID } from 'node:crypto'
 
 const idPattern = /^[a-z0-9-]{1,64}$/
 const uuidPattern = /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/
@@ -42,16 +42,14 @@ function makeSupabase(url, key) {
     const data = await response.json().catch(() => null)
     if (!response.ok) {
       if (response.status === 429) throw new HttpError(429, 'Terlalu banyak permintaan. Coba lagi nanti.')
-      if (path === '/auth/v1/token?grant_type=password' && data?.code === 'email_not_confirmed')
-        throw new HttpError(403, 'Konfirmasi email terlebih dahulu, lalu coba masuk lagi.')
       if (path === '/auth/v1/token?grant_type=password' && [400, 401, 403].includes(response.status))
         throw new HttpError(401, 'Email atau kata sandi tidak cocok.')
-      if (path.startsWith('/auth/v1/signup?')) {
-        if (['user_already_exists', 'email_exists'].includes(data?.code)) return null
+      if (path === '/auth/v1/admin/users' && method === 'POST') {
+        if (['user_already_exists', 'email_exists'].includes(data?.code))
+          throw new HttpError(409, 'Email sudah terdaftar. Masuk dengan akun yang sudah ada.')
         if (data?.code === 'weak_password') throw new HttpError(400, 'Pilih kata sandi yang lebih kuat.')
         if (data?.code === 'validation_failed') throw new HttpError(400, 'Periksa email dan kata sandi yang kamu masukkan.')
-        if (data?.code === 'signup_disabled') throw new HttpError(503, 'Pendaftaran pembeli sedang ditutup.')
-        throw new HttpError(502, 'Email konfirmasi belum bisa dikirim. Coba lagi nanti.')
+        throw new HttpError(502, 'Akun belum bisa dibuat. Coba lagi nanti.')
       }
       if (path === '/auth/v1/user' && [401, 403].includes(response.status)) return null
       if (/^PT(404|409)$/.test(data?.code))
@@ -153,9 +151,8 @@ export async function handle(request, resource) {
 
     if (resource === 'register') {
       if (method === 'GET') {
-        const confirmed = url.searchParams.has('code') && !url.searchParams.has('error')
         return new Response(null, { status: 303, headers: {
-          Location: confirmed ? '/#masuk/email-terverifikasi' : '/#masuk/periksa-email',
+          Location: '/#masuk',
           'Cache-Control': 'no-store',
           'Referrer-Policy': 'no-referrer',
         } })
@@ -165,17 +162,11 @@ export async function handle(request, resource) {
         requireValue(validText(email, 254) && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()), 'Masukkan email yang valid.')
         requireValue(typeof password === 'string' && password.length >= 8 && Buffer.byteLength(password) <= 72,
           'Gunakan kata sandi minimal 8 karakter dan maksimal 72 byte.')
-        const settings = await api('/auth/v1/settings')
-        requireValue(!settings?.disable_signup, 'Pendaftaran pembeli sedang ditutup.', 503)
-        requireValue(settings?.mailer_autoconfirm === false, 'Aktifkan konfirmasi email untuk pendaftaran pembeli.', 503)
-        // Verify the email without exchanging the callback code for a session.
-        const codeChallenge = createHash('sha256').update(randomBytes(32)).digest('base64url')
-        const redirect = new URL('/api/register', url.origin)
-        const result = await api('/auth/v1/signup?redirect_to=' + encodeURIComponent(redirect.href), {
-          method, body: { email: email.trim(), password, code_challenge: codeChallenge, code_challenge_method: 's256' },
+        const created = await api('/auth/v1/admin/users', {
+          method, body: { email: email.trim(), password, email_confirm: true },
         })
-        requireValue(!result?.access_token, 'Aktifkan konfirmasi email untuk pendaftaran pembeli.', 503)
-        return json({ verificationRequired: true }, 202)
+        requireValue(validId(created?.id, uuidPattern), 'Pembuatan akun belum bisa dipastikan. Coba masuk terlebih dahulu.', 502)
+        return json({ created: true }, 201)
       }
       return json({ error: 'Metode tidak tersedia.' }, 405)
     }
