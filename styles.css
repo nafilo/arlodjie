@@ -310,6 +310,27 @@ main:focus { outline: none; }
 .checkout-summary { padding: clamp(18px,3vw,28px); background: var(--white); border: 1px solid var(--line); border-radius: 10px; }
 .checkout-summary .list-row { padding: 8px 0 14px; }
 .checkout-summary .list-row span:last-child { white-space: nowrap; }
+.checkout-quantity {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 6px 12px;
+}
+.checkout-quantity label { display: block; font-weight: 700; }
+.checkout-quantity small { display: block; margin-top: 3px; }
+.quantity-stepper { display: flex; gap: 4px; }
+.quantity-stepper .btn { width: 44px; min-height: 44px; padding: 0; font-size: 1.15rem; }
+.quantity-stepper .qty {
+  width: 48px;
+  min-height: 44px;
+  appearance: textfield;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.quantity-stepper .qty::-webkit-inner-spin-button,
+.quantity-stepper .qty::-webkit-outer-spin-button { appearance: none; margin: 0; }
+#checkout-quantity-error { grid-column: 1 / -1; color: #8c391e; }
+#checkout-quantity-error:empty { display: none; }
 .checkout-total { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
 .checkout-total strong { font-variant-numeric: tabular-nums; font-size: 1.25rem; }
 .checkout-summary p { font-size: .88rem; }
@@ -842,6 +863,28 @@ body > main { flex: 1; }
 }
 .auth-links { display: flex; flex-wrap: wrap; gap: 4px 16px; margin-top: 8px; }
 .auth-links a { display: inline-flex; align-items: center; min-height: 44px; }
+#checkout-auth {
+  position: fixed;
+  inset: 0;
+  width: min(450px, calc(100% - 32px));
+  max-width: none;
+  margin: auto;
+  border-radius: 12px;
+  padding: 28px;
+}
+#checkout-auth > form { position: absolute; inset: 8px 8px auto auto; }
+#checkout-auth > form .icon-btn { width: 44px; height: 44px; }
+#checkout-auth h2 { padding-right: 38px; font-size: 2.15rem; }
+#checkout-auth p { margin-top: 10px; }
+.checkout-auth-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 20px; }
+@media (max-width: 600px) {
+  #checkout-auth {
+    inset: auto 0 0;
+    width: 100%;
+    border-radius: 16px 16px 0 0;
+    padding: 24px 18px calc(18px + env(safe-area-inset-bottom));
+  }
+}
 .admin-area .top-inner { grid-template-columns: minmax(0, 1fr) auto; }
 .admin-area #nav, .admin-area #search, .admin-area .top-actions, .admin-area .store-footer { display: none; }
 .admin-area #main { padding-bottom: 36px; }

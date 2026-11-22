@@ -413,7 +413,9 @@ async function shopTask(control, task, message) {
     } else if(error.status===409&&!message){
       await refreshCatalog().catch(()=>{})
       await refreshOrders()
-      if(!control.form)render()
+      const form=control.form
+      if(form?.isConnected&&form.dataset.product&&product(form.dataset.product)?.stock)updateDirectQuantity(form.elements.quantity)
+      else if(!form||form.dataset.product)render()
     }
     if(message)message.textContent=error.message
     else toast(error.message)
@@ -558,10 +560,36 @@ const cartItems=()=>Object.entries(state.cart).map(([id,qty])=>({ ...product(id)
 const cartLimit=item=>Math.min(item.stock,shopApi.enabled?50:item.stock)
 const orderTotal=items=>items.reduce((sum,p)=>sum+p.price*p.qty,0)
 const subtotal=()=>orderTotal(cartItems())
-function checkoutItems(directId) {
+function checkoutItems(directId,quantity=1) {
   if(!directId)return cartItems()
   const item=product(directId)
-  return item?[{...item,qty:1}]:[]
+  return item?[{...item,qty:quantity}]:[]
+}
+const checkoutIntentKey = 'arlodjie.checkout-return.v1'
+const isCheckoutRoute = path => typeof path==='string'&&/^checkout(?:\/[a-z0-9-]{1,64})?$/.test(path)
+function rememberCheckout(path) {
+  if(!isCheckoutRoute(path))return
+  shopReturn=path
+  try {
+    localStorage.setItem(checkoutIntentKey,JSON.stringify({path,expires:Date.now()+60*60*1000}))
+  } catch {
+    // Keep the checkout route in memory if browser storage is blocked.
+  }
+}
+function takeCheckoutIntent() {
+  try {
+    const record=JSON.parse(localStorage.getItem(checkoutIntentKey))
+    localStorage.removeItem(checkoutIntentKey)
+    if(record?.expires>Date.now()&&isCheckoutRoute(record.path))return record.path
+  } catch {
+    // The buyer can still continue from the current tab.
+  }
+  return ''
+}
+function openCheckoutAuth(path) {
+  const dialog=$('#checkout-auth')
+  dialog.dataset.checkout=path
+  if(!dialog.open)dialog.showModal()
 }
 function cart() {
   const items=cartItems()
@@ -583,6 +611,35 @@ function demoSignIn() {
   return `<div class="auth-shell">${heading('Sesi demo','Masuk untuk membuka kembali akun dan pesanan demo di browser ini.')}
     ${action('demo-sign-in','Masuk demo','btn primary')}</div>`
 }
+function directOrderLine(item) {
+  const limit=cartLimit(item)
+  return `<div class="checkout-quantity">
+    <div><label for="checkout-quantity">Jumlah</label><small id="checkout-quantity-limit">Maks. ${limit} unit</small></div>
+    <div class="quantity-stepper">
+      <button type="button" class="btn" data-action="checkout-quantity" data-id="-1" aria-label="Kurangi jumlah" disabled>−</button>
+      <input id="checkout-quantity" name="quantity" class="qty" type="number" inputmode="numeric" min="1" max="${limit}" step="1" required value="1" aria-describedby="checkout-quantity-limit checkout-quantity-error">
+      <button type="button" class="btn" data-action="checkout-quantity" data-id="1" aria-label="Tambah jumlah"${limit<=1?' disabled':''}>+</button>
+    </div>
+    <p id="checkout-quantity-error" role="status"></p>
+  </div>
+  <div class="list-row"><span>${safe(item.name)} × <span data-direct-qty>1</span></span><span data-direct-price>${rupiah(item.price)}</span></div>`
+}
+function updateDirectQuantity(input) {
+  const form=input.form
+  const item=product(form.dataset.product)
+  const limit=cartLimit(item)
+  input.max=limit
+  const quantity=input.valueAsNumber
+  const valid=input.validity.valid
+  const total=valid?rupiah(item.price*quantity):'—'
+  form.querySelector('#checkout-quantity-limit').textContent=`Maks. ${limit} unit`
+  form.querySelector('#checkout-quantity-error').textContent=valid?'':`Masukkan jumlah antara 1 dan ${limit} unit.`
+  form.querySelector('[data-id="-1"]').disabled=quantity<=1
+  form.querySelector('[data-id="1"]').disabled=quantity>=limit
+  form.querySelector('[data-direct-qty]').textContent=valid?quantity:'—'
+  form.querySelector('[data-direct-price]').textContent=total
+  form.querySelector('[data-checkout-total]').textContent=total
+}
 function checkout(directId) {
   const items=checkoutItems(directId)
   if(directId&&!items[0]?.stock){
@@ -596,8 +653,8 @@ function checkout(directId) {
       ${field('Nama penerima','name',`required maxlength="100" autocomplete="name" value="${safe(profile.name)}"`)}
       ${area('Alamat pengiriman','address','required maxlength="500" autocomplete="street-address" rows="3"')}
     </section>
-    <section class="checkout-summary"><h2>Ringkasan pesanan</h2>${orderLines(items)}
-      <div class="checkout-total"><span>Total</span><strong>${rupiah(orderTotal(items))}</strong></div>
+    <section class="checkout-summary"><h2>Ringkasan pesanan</h2>${directId?directOrderLine(items[0]):orderLines(items)}
+      <div class="checkout-total"><span>Total</span><strong data-checkout-total aria-live="polite">${rupiah(orderTotal(items))}</strong></div>
       <p>Simulasi transfer bank. Pesanan diproses setelah admin mengonfirmasi pembayaran.</p>${submit('Buat pesanan')}
     </section></form>`
 }
@@ -884,10 +941,19 @@ function adminPage(section,id) {
   return missingPage('Halaman admin tidak ditemukan','admin','Kembali ke produk')
 }
 function render(scroll=false) {
-  const [page='beranda',id,sub] = (location.hash.slice(1)||'beranda').split('/')
+  let [page='beranda',id,sub] = (location.hash.slice(1)||'beranda').split('/')
   if(shopApi.enabled&&shopUser?.admin&&(page!=='admin'||id==='masuk')){
     location.replace('#admin')
     return
+  }
+  let guardedCheckout
+  if(page==='checkout'&&shopApi.enabled&&!shopUser&&checkoutItems(id).some(item=>item.stock)){
+    const path=id?'checkout/'+id:'checkout'
+    if(isCheckoutRoute(path)){
+      guardedCheckout=path
+      page=id?'produk':'keranjang'
+      history.replaceState(history.state,'','#'+page+(id?'/'+id:''))
+    }
   }
   for(const url of draftUrls)URL.revokeObjectURL(url)
   draftUrls.clear()
@@ -910,8 +976,8 @@ function render(scroll=false) {
   const views={beranda:home,katalog:productList,produk:()=>detail(product(id)),keranjang:cart,checkout:()=>checkout(id),pesanan:orders,'detail-pesanan':orderDetail,ulasan:()=>review(id),akun:account,profil:editProfile,tentang:about,admin:()=>adminPage(id,sub),masuk:()=>!shopApi.enabled||shopUser?account():signIn(id),daftar:()=>shopApi.enabled?register():missingPage('Pendaftaran tersedia di versi online','akun','Akun Saya'),favorit:()=>heading('Favorit')+(state.favorites.size?grid([...state.favorites].map(product).filter(Boolean)):empty('Belum ada favorit','Simpan jam lewat ikon hati.',link('katalog','Lihat katalog')))}
   const main=$('#main')
   const signedIn=shopApi.enabled?Boolean(shopUser):demoSignedIn
-  const privatePage=['pesanan','detail-pesanan','ulasan','profil','checkout'].includes(page)
-    || !shopApi.enabled&&page==='admin'
+  const privatePage=['pesanan','detail-pesanan','ulasan','profil'].includes(page)
+    || !shopApi.enabled&&['checkout','admin'].includes(page)
   const needsLogin=!signedIn&&privatePage
   if(needsLogin)shopReturn=location.hash.slice(1)
   main.innerHTML=needsLogin?(shopApi.enabled?signIn():demoSignIn()):
@@ -937,10 +1003,12 @@ function render(scroll=false) {
   count?$('#cart-link').setAttribute('data-count',count):$('#cart-link').removeAttribute('data-count')
   if(scroll){
     if($('#sheet').open)$('#sheet').close()
+    if($('#checkout-auth').open)$('#checkout-auth').close()
     main.focus({preventScroll:true})
     window.scrollTo(0,0)
   }
   bannerManager.schedule()
+  if(guardedCheckout)openCheckoutAuth(guardedCheckout)
 }
 function toast(message) {
   $('#toast').textContent=message
@@ -999,6 +1067,7 @@ $('#search-btn').innerHTML=icon('search')
 $('#favorite-link').innerHTML=icon('heart')
 $('#cart-link').innerHTML=icon('cart')
 $('#footer-about').innerHTML=icon('info')+'<span>About Us</span>'
+$('#close-checkout-auth').innerHTML=icon('close')
 $('#admin-sign-out').innerHTML=icon('logout')+'Keluar'
 $('#search').addEventListener('submit',(e)=>{
   e.preventDefault()
@@ -1078,6 +1147,10 @@ document.addEventListener('focusout',(e)=>{
 })
 document.addEventListener('input',(e)=>{
   const input=e.target
+  if(input.id==='checkout-quantity'){
+    updateDirectQuantity(input)
+    return
+  }
   if(input.name==='brandSearch'&&input.form?.dataset.form==='filters'){
     const query=brandKey(input.value.trim())
     const rows=[...input.form.querySelectorAll('[data-brand-filter]')]
@@ -1144,9 +1217,29 @@ document.addEventListener('change',(e)=>{
   }
 })
 document.addEventListener('click',(e)=>{
+  const anchor=e.target.closest('a')
+  if(shopApi.enabled&&!shopUser&&anchor&&e.button===0&&!e.metaKey&&!e.ctrlKey&&!e.shiftKey&&!e.altKey){
+    const path=anchor.hash.slice(1)
+    const dialog=$('#checkout-auth')
+    if(dialog.contains(anchor)){
+      rememberCheckout(dialog.dataset.checkout)
+      dialog.close()
+    }else if(isCheckoutRoute(path)){
+      e.preventDefault()
+      openCheckoutAuth(path)
+      return
+    }
+  }
   const trigger=e.target.closest('[data-action]')
   if(!trigger)return
   const {action:name,id}=trigger.dataset
+  if(name==='checkout-quantity'){
+    const input=trigger.form.elements.quantity
+    const quantity=Math.trunc(input.valueAsNumber)+Number(id)
+    input.value=Math.min(Number(input.max),Math.max(1,quantity||1))
+    updateDirectQuantity(input)
+    return
+  }
   if(name==='demo-sign-in'&&!shopApi.enabled){
     setDemoSession(true)
     const destination=shopReturn
@@ -1328,9 +1421,11 @@ document.addEventListener('submit',async(e)=>{
         }
       }
       await refreshOrders()
+      const pendingCheckout=user.admin?'':takeCheckoutIntent()
       const adminTarget=[route,shopReturn].find(path=>path.startsWith('admin/')&&path!=='admin/masuk')
       const buyerTarget=/^admin(?:\/|$)/.test(shopReturn)?'akun':shopReturn
-      const destination=user.admin?(adminTarget||'admin'):buyerTarget
+      const destination=user.admin?(adminTarget||'admin'):
+        buyerTarget==='akun'&&pendingCheckout?pendingCheckout:buyerTarget
       shopReturn='akun'
       if(location.hash==='#'+destination)render(true)
       else location.hash=destination
@@ -1371,13 +1466,18 @@ document.addEventListener('submit',async(e)=>{
   }
   if(type==='checkout'){
     const directId=form.dataset.product
-    const items=checkoutItems(directId)
+    const quantity=form.elements.quantity
+    const items=checkoutItems(directId,quantity?.valueAsNumber)
     if(directId&&!items[0]?.stock){
       render()
       $('#main').focus({preventScroll:true})
       return
     }
     if(!items.length)return
+    if(quantity){
+      updateDirectQuantity(quantity)
+      if(!quantity.reportValidity())return
+    }
     for(const key of ['name','address']){
       value[key]=value[key].trim()
       if(!value[key]){
@@ -1389,10 +1489,16 @@ document.addEventListener('submit',async(e)=>{
     if(shopApi.enabled){
       shopTask(form.querySelector('[type="submit"]'),async()=>{
         form.dataset.requestId||=crypto.randomUUID()
-        const order=await shopApi.request('orders','POST',{
-          id:form.dataset.requestId,
-          name:value.name,address:value.address,items:Object.fromEntries(items.map(item=>[item.id,item.qty])),
-        })
+        let order
+        if(directId)form.inert=true
+        try {
+          order=await shopApi.request('orders','POST',{
+            id:form.dataset.requestId,
+            name:value.name,address:value.address,items:Object.fromEntries(items.map(item=>[item.id,item.qty])),
+          })
+        } finally {
+          if(directId)form.inert=false
+        }
         if(!directId)for(const item of order.items)delete state.cart[item.id]
         state.orders=[order,...state.orders.filter(item=>item.id!==order.id)]
         for(const line of order.items){
@@ -1401,6 +1507,9 @@ document.addEventListener('submit',async(e)=>{
         }
         reconcileBasket()
         saveCommerce()
+        if(directId&&order.items[0].qty!==items[0].qty){
+          toast(`Pesanan sebelumnya sudah dibuat untuk ${order.items[0].qty} unit.`)
+        }
         location.hash='detail-pesanan/'+order.id
       })
       return

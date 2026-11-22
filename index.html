@@ -35,6 +35,17 @@
     <div class="store-footer-inner"><a href="#tentang" id="footer-about">About Us</a></div>
   </footer>
   <dialog id="sheet"></dialog>
+  <dialog id="checkout-auth" aria-labelledby="checkout-auth-title" aria-describedby="checkout-auth-copy">
+    <form method="dialog">
+      <button type="submit" class="icon-btn" aria-label="Tutup" id="close-checkout-auth"></button>
+    </form>
+    <h2 id="checkout-auth-title">Masuk untuk lanjut checkout</h2>
+    <p id="checkout-auth-copy">Masuk atau buat akun untuk menyelesaikan pesanan dan melihat statusnya.</p>
+    <div class="checkout-auth-actions">
+      <a class="btn primary" href="#masuk" autofocus>Masuk</a>
+      <a class="btn" href="#daftar">Buat akun</a>
+    </div>
+  </dialog>
   <div id="toast" role="status" aria-live="polite"></div>
 </body>
 </html>
