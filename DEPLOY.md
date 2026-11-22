@@ -24,10 +24,10 @@ Rujukan [Kunci API Supabase](https://supabase.com/docs/guides/getting-started/ap
 
 ## 2. Deploy ke Vercel
 
-1. Pastikan branch **pwa-deploy** sudah ada di GitHub. Dari folder Arlodjie, jalankan perintah berikut jika branch itu masih hanya ada di komputermu.
+1. Pastikan commit Arlodjie yang ingin diterbitkan sudah ada di **main** di GitHub. Jika commit terbaru masih lokal, jalankan perintah berikut dari folder Arlodjie saat siap menerbitkan.
 
    ```powershell
-   git push -u origin pwa-deploy
+   git push origin main
    ```
 2. Di [Vercel](https://vercel.com/dashboard), pilih akun personal **Hobby**, lalu **Add New → Project** dan impor repo GitHub **arlodjie**. Untuk repo khusus Arlodjie, biarkan **Root Directory** di akar repo. **Framework Preset** memakai **Other**. Build dan output sudah diatur oleh vercel.json.
 3. Tambahkan dua **Environment Variables** melalui dashboard. Atur untuk **Preview** dan **Production** jika kamu ingin menguji keduanya.
@@ -38,7 +38,7 @@ Rujukan [Kunci API Supabase](https://supabase.com/docs/guides/getting-started/ap
    | SUPABASE_SECRET_KEY | Secret key berawalan sb_secret_. Tandai **Sensitive**. |
 
    Simpan nilai di Vercel. Repo hanya memuat nama variabel di .env.example. Hindari memasukkan kunci ke tangkapan layar, percakapan, atau source code.
-4. Jika impor awal memakai main, buka **Settings → Environments → Production → Branch Tracking** dan pilih **pwa-deploy**. Lalu buka **Deployments → ⋯ → Create Deployment**, masukkan nama branch tersebut dan klik **Create Deployment**. Pastikan commit dari branch tersebut berstatus **Ready**. Perubahan env berlaku untuk deployment berikutnya.
+4. Jika proyek sebelumnya memakai **pwa-deploy**, buka **Settings → Environments → Production → Branch Tracking** dan pilih **main** setelah commit terbaru tersedia di GitHub. Buka **Deployments → ⋯ → Create Deployment**, masukkan **main**, lalu klik **Create Deployment**. Pastikan commit terbaru berstatus **Ready**. Perubahan env berlaku untuk deployment berikutnya.
 
 Rujukan [Deploy repo Git](https://vercel.com/docs/git) · [Buat deployment dari branch](https://vercel.com/changelog/manually-create-deployments-by-commit-or-branch-in-the-dashboard) · [Environment Variables](https://vercel.com/docs/environment-variables) · [Vercel Hobby](https://vercel.com/docs/plans/hobby)
 

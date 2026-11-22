@@ -11,7 +11,7 @@ Buka `index.html` untuk mencoba prototipe. Harga, stok, dan transaksi bersifat d
 - **Banner.** Buka **Akun → Panel admin → Banner beranda** untuk memilih jam, mengatur foto dan transisi, lalu menyimpan hingga tiga slide aktif.
 - **Galeri produk.** Ketuk indikator foto di kartu katalog atau pilih thumbnail di halaman detail. Galeri demo menggunakan foto utama dan tampilan close-up dari sumber yang sama.
 
-Logo vektor tersedia dalam `lockup.svg`, `logo.svg`, dan `logo-mono.svg`. Folder `figma-import` memuat layar dan papan untuk Figma. SVG menyimpan elemen visual dalam lapisan terpisah. Interaksi prototipe dijalankan oleh halaman HTML.
+Logo vektor tersedia dalam `lockup.svg`, `logo.svg`, dan `logo-mono.svg`. Ekspor layar dan papan Figma dibuat di folder lokal `figma-import`. SVG menyimpan elemen visual dalam lapisan terpisah. Interaksi prototipe dijalankan oleh halaman HTML.
 
 Untuk menjalankan pengecekan Chrome serta membuat ulang SVG, jalankan `node Arlodjie/verify-and-export.mjs` dari akar workspace. Script menguji pembelian sampai pemberian rating serta publikasi dan penyuntingan spesifikasi produk.
 
