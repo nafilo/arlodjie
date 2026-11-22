@@ -20,6 +20,8 @@ Arlodjie memakai halaman statis untuk PWA, fungsi Node.js di Vercel untuk API Ar
    Hasilnya harus satu baris. Akun pembeli cukup memakai peran bawaan. Login kembali jika admin sebelumnya sudah masuk.
 5. Buka **Connect** untuk menyalin Project URL, lalu **Settings → API Keys → Secret keys** untuk memperoleh key berawalan sb_secret_. Simpan keduanya untuk diisi langsung di Vercel. Tabel hanya dapat diakses oleh peran server. API memvalidasi identitas dan memeriksa izin admin di server sebelum mengubah data.
 
+API membaca `app_metadata.arlodjie_admin` dari akun Supabase. Hanya nilai boolean `true` yang membuka akses admin. Form pendaftaran web hanya membuat akun pembeli. Untuk membuat admin baru, gunakan **Add user** dan kueri pada langkah 4. Kedua peran memakai halaman `/#masuk`, dan akun admin langsung diarahkan ke panelnya.
+
 Rujukan [Kunci API Supabase](https://supabase.com/docs/guides/getting-started/api-keys) · [Pengaturan Auth](https://supabase.com/docs/guides/auth/general-configuration)
 
 ## 2. Deploy ke Vercel
@@ -47,7 +49,7 @@ Rujukan [Deploy repo Git](https://vercel.com/docs/git) · [Buat deployment dari 
 1. Di Supabase, buka **Authentication → Sign In / Providers**. Aktifkan pendaftaran pengguna baru dan **Confirm email** pada provider Email.
 2. Di **Authentication → URL Configuration**, isi **Site URL** dengan domain Vercel produksi, misalnya `https://arlodjie.vercel.app`. Tambahkan `https://arlodjie.vercel.app/api/register` ke **Redirect URLs**. Gunakan domain deployment kamu pada kedua nilai. Untuk menguji Preview, tambah URL callback Preview yang tepat dengan path yang sama.
 3. Atur **Custom SMTP** di Supabase untuk mengirim konfirmasi ke pembeli umum. Pengirim bawaan Supabase hanya melayani alamat anggota tim proyek. Masukkan kredensial SMTP melalui dashboard Supabase.
-4. Gunakan tautan **Confirm signup** bawaan Supabase. Pembeli membuka `/#daftar`, memverifikasi email, lalu masuk melalui `/#masuk`. Akun pembeli terdaftar di Supabase Auth tanpa pengaturan role. Akun admin yang dibuat melalui langkah 1 masuk melalui `/#admin/masuk`.
+4. Gunakan tautan **Confirm signup** bawaan Supabase. Pembeli membuka `/#daftar`, memverifikasi email, lalu masuk melalui `/#masuk`. Akun pembeli terdaftar di Supabase Auth tanpa pengaturan peran tambahan.
 
 Rujukan [Pendaftaran email dan kata sandi](https://supabase.com/docs/guides/auth/passwords) · [Pembatasan email bawaan dan Custom SMTP](https://supabase.com/docs/guides/auth/auth-smtp)
 
@@ -55,8 +57,8 @@ Rujukan [Pendaftaran email dan kata sandi](https://supabase.com/docs/guides/auth
 
 - Buka **/api/products** pada domain deployment. Respons yang benar berupa JSON dengan delapan jam demo. **/api/banner** boleh berisi null sampai admin menyimpan banner. **/api/orders** dari jendela penyamaran sebelum login seharusnya memberi HTTP 401.
 - Masuk sebagai pembeli. Buka satu jam, pilih **Beli sekarang**, dan buat pesanan dengan alamat fiktif. Periksa **Riwayat Pesanan**. Dengan akun pembeli kedua yang berbeda, pastikan pesanan pertama tidak muncul.
-- Di browser lain, buka `/#admin/masuk` dan masuk sebagai admin. Terbitkan satu produk dengan beberapa foto, simpan banner, lalu konfirmasi dan tandai pesanan dikirim. Pastikan akun admin langsung kembali ke panel jika membuka checkout. Sebagai pembeli, muat ulang pesanan, klik **Pesanan diterima**, lalu beri rating.
-- Uji **Keluar dari akun** dari halaman Akun Saya dan **Keluar** dari header panel admin. Masing-masing kembali ke halaman masuknya.
+- Di browser lain, buka `/#masuk` dan gunakan akun admin. Pastikan aplikasi langsung membuka panel admin. Terbitkan satu produk dengan beberapa foto, simpan banner, lalu konfirmasi dan tandai pesanan dikirim. Pastikan akun admin langsung kembali ke panel jika membuka checkout. Sebagai pembeli, muat ulang pesanan, klik **Pesanan diterima**, lalu beri rating.
+- Uji **Keluar dari akun** dari halaman Akun Saya dan **Keluar** dari header panel admin. Keduanya kembali ke halaman masuk yang sama.
 - Di Chrome, buka URL HTTPS dan instal melalui menu browser. Pada Safari iPhone, gunakan **Add to Home Screen**. Setelah katalog dimuat, coba buka ulang PWA saat offline. Antarmuka, katalog yang sudah tercache, serta foto demo dapat dibuka. Checkout, login, dan perubahan admin memerlukan koneksi.
 - Cantumkan URL publik dan tautan repo GitHub sesuai kolom pengumpulan, cek keunikan judul, dan catat minimal satu asistensi sesuai ketentuan TA.
 

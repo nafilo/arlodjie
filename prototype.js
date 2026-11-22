@@ -407,10 +407,9 @@ async function shopTask(control, task, message) {
     await task()
   } catch(error) {
     if(error.status===401&&shopUser){
-      const admin=shopUser.admin
       shopReturn=location.hash.slice(1)
       setShopUser(null)
-      location.hash=admin?'admin/masuk':'masuk'
+      location.hash='masuk'
     } else if(error.status===409){
       await refreshCatalog().catch(()=>{})
       await refreshOrders()
@@ -684,27 +683,24 @@ function account() {
     ${action('sign-out',icon('logout')+'Keluar dari akun','btn account-sign-out')}
   </div>`
 }
-function signIn(portal='buyer', status='') {
-  const admin=portal==='admin'
+function signIn(status='') {
   const notices={
     'email-terverifikasi':'Email sudah dikonfirmasi. Masuk dengan kata sandimu.',
     'periksa-email':'Buka tautan konfirmasi terbaru di email sebelum masuk.',
   }
-  return `<div class="auth-shell">${heading(admin?'Masuk admin':'Masuk ke Arlodjie',admin?
-    'Kelola katalog, banner, dan pesanan toko.':'Masuk untuk membuat pesanan dan melihat riwayat belanja.')}
-  ${!admin&&Object.hasOwn(notices,status)?`<p class="auth-notice" role="status">${notices[status]}</p>`:''}
-  <form class="panel form auth-form" data-form="sign-in" data-portal="${portal}">
+  return `<div class="auth-shell">${heading('Masuk ke Arlodjie')}
+  ${Object.hasOwn(notices,status)?`<p class="auth-notice" role="status">${notices[status]}</p>`:''}
+  <form class="panel form auth-form" data-form="sign-in">
     ${field('Email','email','required maxlength="254" autocomplete="username"','email')}
     ${field('Kata sandi','password','required maxlength="256" autocomplete="current-password"','password')}
     <p class="auth-error" data-auth-message role="alert"></p>
     ${submit('Masuk')}
   </form>
-  <div class="auth-links">${admin?link('masuk','Masuk sebagai pembeli','text-btn'):
-    `${link('daftar','Buat akun pembeli','text-btn')}${link('admin/masuk','Masuk sebagai admin','text-btn')}`}</div></div>`
+  <div class="auth-links">${link('daftar','Buat akun','text-btn')}</div></div>`
 }
 function register(status) {
   if(shopUser)return account()
-  return `<div class="auth-shell">${heading(status==='cek-email'?'Cek email kamu':'Buat akun pembeli')}
+  return `<div class="auth-shell">${heading(status==='cek-email'?'Cek email kamu':'Buat akun')}
     ${status==='cek-email'?'<p class="panel">Buka tautan konfirmasi yang dikirim Supabase ke email pendaftaran. Setelah itu, masuk ke Arlodjie. Cek folder Spam jika email belum terlihat.</p>':
       `<form class="panel form auth-form" data-form="register">
         ${field('Email','email','required maxlength="254" autocomplete="username"','email')}
@@ -880,8 +876,8 @@ function missingPage(title,route,label) {
   return heading(title)+link(route,label,'btn')
 }
 function adminPage(section,id) {
-  if(shopApi.enabled&&!shopUser)return signIn('admin')
-  if(!canAdmin())return empty('Akses khusus admin','Keluar dari akun pembeli untuk masuk sebagai admin.',link('akun','Akun Saya'))
+  if(shopApi.enabled&&!shopUser)return signIn()
+  if(!canAdmin())return empty('Akses khusus admin','Akun ini menggunakan akses pembeli.',link('akun','Akun Saya'))
   if(!section||section==='masuk')return adminProducts()
   if(section==='tambah')return adminForm()
   if(section==='pesanan')return adminOrders()
@@ -908,12 +904,12 @@ function render(scroll=false) {
     }
   }
   active=location.hash
-  const adminArea=shopApi.enabled&&page==='admin'&&(!shopUser||shopUser.admin)
+  const adminArea=shopApi.enabled&&page==='admin'&&shopUser?.admin
   document.body.classList.toggle('admin-area',adminArea)
-  $('.wordmark').href=adminArea?(shopUser?'#admin':'#admin/masuk'):'#beranda'
+  $('.wordmark').href=adminArea?'#admin':'#beranda'
   $('#admin-actions').hidden=!shopUser?.admin
   $('#search input').value=state.query
-  const views={beranda:home,katalog:productList,produk:()=>detail(product(id)),keranjang:cart,checkout:()=>checkout(id),pesanan:orders,'detail-pesanan':orderDetail,ulasan:()=>review(id),akun:account,profil:editProfile,tentang:about,admin:()=>adminPage(id,sub),masuk:()=>!shopApi.enabled||shopUser?account():signIn('buyer',id),daftar:()=>shopApi.enabled?register(id):missingPage('Pendaftaran tersedia di versi online','akun','Akun Saya'),favorit:()=>heading('Favorit')+(state.favorites.size?grid([...state.favorites].map(product).filter(Boolean)):empty('Belum ada favorit','Simpan jam lewat ikon hati.',link('katalog','Lihat katalog')))}
+  const views={beranda:home,katalog:productList,produk:()=>detail(product(id)),keranjang:cart,checkout:()=>checkout(id),pesanan:orders,'detail-pesanan':orderDetail,ulasan:()=>review(id),akun:account,profil:editProfile,tentang:about,admin:()=>adminPage(id,sub),masuk:()=>!shopApi.enabled||shopUser?account():signIn(id),daftar:()=>shopApi.enabled?register(id):missingPage('Pendaftaran tersedia di versi online','akun','Akun Saya'),favorit:()=>heading('Favorit')+(state.favorites.size?grid([...state.favorites].map(product).filter(Boolean)):empty('Belum ada favorit','Simpan jam lewat ikon hati.',link('katalog','Lihat katalog')))}
   const main=$('#main')
   const signedIn=shopApi.enabled?Boolean(shopUser):demoSignedIn
   const privatePage=['pesanan','detail-pesanan','ulasan','profil','checkout'].includes(page)
@@ -1166,13 +1162,11 @@ document.addEventListener('click',(e)=>{
       return
     }
     shopTask(trigger,async()=>{
-      const admin=shopUser?.admin
       await shopApi.request('session','DELETE')
       setShopUser(null)
       shopReturn='akun'
-      const destination=admin?'#admin/masuk':'#masuk'
-      if(location.hash===destination)render(true)
-      else location.hash=destination
+      if(location.hash==='#masuk')render(true)
+      else location.hash='masuk'
     })
     return
   }
@@ -1316,9 +1310,8 @@ document.addEventListener('submit',async(e)=>{
   if(type==='sign-in'){
     if(!shopApi.enabled||shopUser)return
     shopTask(form.querySelector('[type="submit"]'),async()=>{
-      const portal=form.dataset.portal
       const route=location.hash.slice(1)
-      const {user}=await shopApi.request('session','POST',{email:value.email.trim(),password:value.password,portal})
+      const {user}=await shopApi.request('session','POST',{email:value.email.trim(),password:value.password})
       if(user.admin){
         setShopUser(user)
       } else {
@@ -1334,7 +1327,9 @@ document.addEventListener('submit',async(e)=>{
         }
       }
       await refreshOrders()
-      const destination=user.admin?(route.startsWith('admin/')&&route!=='admin/masuk'?route:'admin'):shopReturn
+      const adminTarget=[route,shopReturn].find(path=>path.startsWith('admin/')&&path!=='admin/masuk')
+      const buyerTarget=/^admin(?:\/|$)/.test(shopReturn)?'akun':shopReturn
+      const destination=user.admin?(adminTarget||'admin'):buyerTarget
       shopReturn='akun'
       if(location.hash==='#'+destination)render(true)
       else location.hash=destination

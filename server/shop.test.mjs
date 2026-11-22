@@ -34,24 +34,21 @@ const account = admin => ({
   app_metadata: { arlodjie_admin: admin },
 })
 
-test('login issues a cookie only for the matching portal', async t => {
+test('one login derives the account role from Supabase', async t => {
   setup(t, (url, { body }) => {
     assert.equal(url.pathname, '/auth/v1/token')
-    const admin = JSON.parse(body).email.startsWith('admin@')
+    const credentials = JSON.parse(body)
+    assert.deepEqual(Object.keys(credentials).sort(), ['email', 'password'])
+    const admin = credentials.email === 'staff@example.invalid'
     return Response.json({ user: account(admin), access_token: 'test-token', expires_in: 3600 })
   })
 
-  for (const [email, portal] of [['admin@example.invalid', 'buyer'], ['buyer@example.invalid', 'admin']]) {
-    const response = await call('session', { body: { email, portal, password: 'test-password' } })
-    assert.equal(response.status, 403)
-    assert.equal(response.headers.get('set-cookie'), null)
+  for (const [email, expectedAdmin] of [['staff@example.invalid', true], ['admin@example.invalid', false]]) {
+    const response = await call('session', { body: { email, password: 'test-password', admin: !expectedAdmin } })
+    assert.equal(response.status, 200)
+    assert.match(response.headers.get('set-cookie'), /HttpOnly/)
+    assert.equal((await response.json()).user.admin, expectedAdmin)
   }
-  const response = await call('session', {
-    body: { email: 'admin@example.invalid', portal: 'admin', password: 'test-password' },
-  })
-  assert.equal(response.status, 200)
-  assert.match(response.headers.get('set-cookie'), /HttpOnly/)
-  assert.equal((await response.json()).user.admin, true)
 })
 
 test('admin cannot check out, confirm delivery as a buyer, or review', async t => {
@@ -67,6 +64,17 @@ test('admin cannot check out, confirm delivery as a buyer, or review', async t =
   assert.equal((await call('orders', { token, method: 'PATCH', body: { id: order, expected: 2 } })).status, 403)
   assert.equal((await call('review', { token, method: 'PUT', body: {} })).status, 403)
   assert.equal(upstreamCalls, 3)
+})
+
+test('buyer-controlled metadata cannot grant admin access', async t => {
+  setup(t, url => {
+    assert.equal(url.pathname, '/auth/v1/user')
+    return Response.json({ ...account(false), user_metadata: { arlodjie_admin: true } })
+  })
+  const token = 'test-token'
+  const response = await call('session', { token, method: 'GET' })
+  assert.equal((await response.json()).user.admin, false)
+  assert.equal((await call('orders?scope=admin', { token, method: 'GET' })).status, 403)
 })
 
 test('registration forwards buyer credentials without client role fields', async t => {

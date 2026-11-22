@@ -140,13 +140,11 @@ export async function handle(request, resource) {
       if (method === 'GET') return json({ user: await user() })
       if (method === 'DELETE') return json({ user: null }, 200, { 'Set-Cookie': cookie('', 0) })
       if (method === 'POST') {
-        const { email, password, portal = 'buyer' } = await bodyAsJson(request) || {}
+        const { email, password } = await bodyAsJson(request) || {}
         requireValue(validText(email, 254) && !!email.trim() && validText(password, 256) && !!password)
-        requireValue(['buyer', 'admin'].includes(portal))
         const session = await api('/auth/v1/token?grant_type=password', { method, body: { email: email.trim(), password } })
         const account = identity(session.user)
-        requireValue(account && account.admin === (portal === 'admin'),
-          portal === 'admin' ? 'Halaman ini khusus akun admin.' : 'Gunakan halaman masuk admin untuk akun ini.', 403)
+        requireValue(account, 'Sesi akun belum bisa dibuka. Coba lagi.', 502)
         return json({ user: account }, 200, {
           'Set-Cookie': cookie(session.access_token, session.expires_in),
         })
