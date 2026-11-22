@@ -3,6 +3,8 @@ const art = {
   home: '<path d="m3 10 9-7 9 7v10H3z"/><path d="M9 20v-6h6v6"/>',
   grid: '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>',
   user: '<circle cx="12" cy="8" r="3.5"/><path d="M4 21v-1a8 8 0 0 1 16 0v1"/>',
+  info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v5m0-8h.01"/>',
+  logout: '<path d="M10 4H5v16h5m5-12 4 4-4 4M9 12h10"/>',
   heart: '<path d="M20.8 5.8a5.2 5.2 0 0 0-7.4 0L12 7.2l-1.4-1.4a5.2 5.2 0 0 0-7.4 7.4L12 22l8.8-8.8a5.2 5.2 0 0 0 0-7.4Z"/>',
   cart: '<path d="M4 8h16l1 13H3L4 8Z"/><path d="M8 9V6a4 4 0 0 1 8 0v3"/>',
   search: '<circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/>',
@@ -271,6 +273,8 @@ const state = { products:structuredClone(demo), favorites:new Set(), cart:{}, or
 const profile = { name:'', email:'', photo:'' }
 let shopUser = null
 let shopReturn = 'akun'
+const demoSessionKey = 'arlodjie.demo-session.v1'
+let demoSignedIn = true
 let catalogUnavailable = false
 let orderListUnavailable = false
 let adminOrderList = []
@@ -293,7 +297,7 @@ let profilePhotoDraft = ''
 let profilePhotoRevision = 0
 const orderSteps = ['Menunggu konfirmasi pembayaran','Pembayaran dikonfirmasi','Dikirim','Selesai']
 const orderDateFormat = new Intl.DateTimeFormat('id-ID',{day:'numeric',month:'short',year:'numeric'})
-const navItems = [['beranda','Beranda','home'],['katalog','Katalog','grid'],['akun','Akun','user'],['tentang','About Us']]
+const navItems = [['beranda','Beranda','home'],['katalog','Katalog','grid'],['akun','Akun','user']]
 const product = (id) => state.products.find((item) => item.id === id)
 const photosFor = (item) => item?.photos?.length ? item.photos : item?.img ? [{src:item.img}] : []
 const photoSelections = new Map()
@@ -567,6 +571,19 @@ function cart() {
 const field = (label,name,attr='',type='text') => `<label class="field">${label}<input name="${name}" type="${type}" ${attr}></label>`
 const area = (label,name,attr='') => `<label class="field">${label}<textarea name="${name}" ${attr}></textarea></label>`
 const submit = (label) => `<button class="btn primary" type="submit">${label}</button>`
+function setDemoSession(signedIn) {
+  demoSignedIn=signedIn
+  try {
+    if(signedIn)localStorage.removeItem(demoSessionKey)
+    else localStorage.setItem(demoSessionKey,'signed-out')
+  } catch {
+    // The demo session can still change in the current tab.
+  }
+}
+function demoSignIn() {
+  return `<div class="auth-shell">${heading('Sesi demo','Masuk untuk membuka kembali akun dan pesanan demo di browser ini.')}
+    ${action('demo-sign-in','Masuk demo','btn primary')}</div>`
+}
 function checkout(directId) {
   const items=checkoutItems(directId)
   if(directId&&!items[0]?.stock){
@@ -643,6 +660,7 @@ function review(id) {
 
 function account() {
   if(shopApi.enabled&&!shopUser)return signIn()
+  if(!shopApi.enabled&&!demoSignedIn)return demoSignIn()
   const name=profile.name||'Pengunjung'
   const orderCount=state.orders.length
   return `<div class="account-layout">${heading('Akun Saya')}
@@ -652,7 +670,7 @@ function account() {
         <h2>${safe(name)}</h2>
         ${profile.email?`<p>${safe(profile.email)}</p>`:''}
       </div>
-      <div class="row">${link('profil','Edit profil','btn primary')}${shopApi.enabled?action('sign-out','Keluar','btn'):''}</div>
+      ${link('profil','Edit profil','btn primary')}
     </section>
     <div class="account-menus">
       <nav class="account-menu panel" aria-label="Belanja">
@@ -663,6 +681,7 @@ function account() {
         <a href="#admin" class="account-link"><span class="account-icon">${icon('grid')}</span><span><strong>Panel admin</strong><small>Akses demo</small></span><span class="account-chevron" aria-hidden="true">${icon('back')}</span></a>
       </nav>`:''}
     </div>
+    ${action('sign-out',icon('logout')+'Keluar dari akun','btn account-sign-out')}
   </div>`
 }
 function signIn(portal='buyer', status='') {
@@ -761,7 +780,9 @@ async function selectProfilePhoto(form,file) {
 }
 function adminShell(section,content) {
   const sections=[['admin','Produk'],['admin/pesanan','Pesanan'],['admin/banner','Banner beranda']]
-  return heading('Panel admin')+`<div class="dashboard"><nav class="side panel" aria-label="Kelola toko">${sections.map(([url,label])=>`<a href="#${url}" ${section===url?'class="active" aria-current="page"':''}>${label}</a>`).join('')}</nav><section class="panel stack admin-content">${content}</section></div>`
+  const title=shopApi.enabled?heading('Panel admin'):`<div class="row between">${heading('Panel admin')}
+    ${action('sign-out',icon('logout')+'Keluar','btn account-sign-out')}</div>`
+  return title+`<div class="dashboard"><nav class="side panel" aria-label="Kelola toko">${sections.map(([url,label])=>`<a href="#${url}" ${section===url?'class="active" aria-current="page"':''}>${label}</a>`).join('')}</nav><section class="panel stack admin-content">${content}</section></div>`
 }
 function adminProducts() {
   const rows=state.products.map(p=>`<a class="inventory-row" href="#admin/edit/${p.id}" aria-label="Edit ${safe(p.brand)} ${safe(p.name)}">
@@ -894,15 +915,25 @@ function render(scroll=false) {
   $('#search input').value=state.query
   const views={beranda:home,katalog:productList,produk:()=>detail(product(id)),keranjang:cart,checkout:()=>checkout(id),pesanan:orders,'detail-pesanan':orderDetail,ulasan:()=>review(id),akun:account,profil:editProfile,tentang:about,admin:()=>adminPage(id,sub),masuk:()=>!shopApi.enabled||shopUser?account():signIn('buyer',id),daftar:()=>shopApi.enabled?register(id):missingPage('Pendaftaran tersedia di versi online','akun','Akun Saya'),favorit:()=>heading('Favorit')+(state.favorites.size?grid([...state.favorites].map(product).filter(Boolean)):empty('Belum ada favorit','Simpan jam lewat ikon hati.',link('katalog','Lihat katalog')))}
   const main=$('#main')
-  const needsLogin=shopApi.enabled&&!shopUser&&['pesanan','detail-pesanan','ulasan','profil','checkout'].includes(page)
+  const signedIn=shopApi.enabled?Boolean(shopUser):demoSignedIn
+  const privatePage=['pesanan','detail-pesanan','ulasan','profil','checkout'].includes(page)
+    || !shopApi.enabled&&page==='admin'
+  const needsLogin=!signedIn&&privatePage
   if(needsLogin)shopReturn=location.hash.slice(1)
-  main.innerHTML=needsLogin?signIn():Object.hasOwn(views,page)?views[page]():missingPage('Halaman tidak ditemukan','beranda','Kembali ke beranda')
+  main.innerHTML=needsLogin?(shopApi.enabled?signIn():demoSignIn()):
+    Object.hasOwn(views,page)?views[page]():missingPage('Halaman tidak ditemukan','beranda','Kembali ke beranda')
   if(catalogUnavailable&&['beranda','katalog','produk','checkout'].includes(page))
     main.insertAdjacentHTML('afterbegin','<p class="panel" role="status">Katalog belum bisa dimuat. Periksa koneksi lalu muat ulang halaman.</p>')
   const title=page==='beranda'?'Toko Jam Tangan':main.querySelector('h1,h2')?.textContent||'Toko Jam Tangan'
   document.title=title+' · Arlodjie'
-  const tab=page==='produk'?'katalog':['profil','pesanan','detail-pesanan','ulasan','favorit','admin'].includes(page)?'akun':page
-  $('#nav').innerHTML=navItems.map(([to,label,svg])=>`<a class="nav-link ${to==='tentang'?'desktop-nav ':''}${tab===to?'active':''}" href="#${to}" ${tab===to?'aria-current="page"':''}>${svg?icon(svg):''}${label}</a>`).join('')
+  const tab=page==='produk'?'katalog':['profil','pesanan','detail-pesanan','ulasan','favorit','admin','masuk','daftar'].includes(page)?'akun':page
+  $('#nav').innerHTML=navItems.map(([to,label,svg])=>`<a class="nav-link${to==='akun'?' mobile-account':''}${tab===to?' active':''}" href="#${to}" ${tab===to?'aria-current="page"':''}>${icon(svg)}${label}</a>`).join('')
+  const accountLink=$('#account-link')
+  const guest=!signedIn
+  accountLink.href=guest?'#masuk':'#akun'
+  accountLink.innerHTML=icon('user')+`<span>${guest?(shopApi.enabled?'Masuk atau daftar':'Masuk demo'):'Akun Saya'}</span>`
+  if(tab==='akun')accountLink.setAttribute('aria-current','page')
+  else accountLink.removeAttribute('aria-current')
   if(page==='tentang')$('#footer-about').setAttribute('aria-current','page')
   else $('#footer-about').removeAttribute('aria-current')
   const count=cartItems().reduce((sum,p)=>sum+p.qty,0)
@@ -970,6 +1001,8 @@ function confirmProductDeletion(item) {
 $('#search-btn').innerHTML=icon('search')
 $('#favorite-link').innerHTML=icon('heart')
 $('#cart-link').innerHTML=icon('cart')
+$('#footer-about').innerHTML=icon('info')+'<span>About Us</span>'
+$('#admin-sign-out').innerHTML=icon('logout')+'Keluar'
 $('#search').addEventListener('submit',(e)=>{
   e.preventDefault()
   Object.assign(state,{brands:[],min:'',max:'',stars:0,query:new FormData(e.currentTarget).get('q').trim()})
@@ -1117,7 +1150,21 @@ document.addEventListener('click',(e)=>{
   const trigger=e.target.closest('[data-action]')
   if(!trigger)return
   const {action:name,id}=trigger.dataset
+  if(name==='demo-sign-in'&&!shopApi.enabled){
+    setDemoSession(true)
+    const destination=shopReturn
+    shopReturn='akun'
+    if(location.hash==='#'+destination)render(true)
+    else location.hash=destination
+    return
+  }
   if(name==='sign-out'){
+    if(!shopApi.enabled){
+      setDemoSession(false)
+      shopReturn='akun'
+      location.hash='masuk'
+      return
+    }
     shopTask(trigger,async()=>{
       const admin=shopUser?.admin
       await shopApi.request('session','DELETE')
@@ -1530,6 +1577,7 @@ async function startShop(){
   }
   loadProfile()
   try{
+    demoSignedIn=localStorage.getItem(demoSessionKey)!=='signed-out'
     await restoreCommerce(localStorage.getItem(commerceKey()))
   }catch{
     toast('Data toko di browser ini belum bisa dibuka.')

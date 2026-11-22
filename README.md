@@ -4,7 +4,7 @@
 
 Lihat [Panduan deploy PWA](DEPLOY.md) untuk konfigurasi Supabase, API Arlodjie, dan Vercel Hobby.
 
-Buka `index.html` untuk mencoba prototipe. Harga, stok, dan transaksi bersifat demonstrasi. Perubahan tersimpan di browser yang sama.
+Buka `index.html` untuk mencoba prototipe. Harga, stok, dan transaksi bersifat demonstrasi. Perubahan tersimpan di browser yang sama. Pilih **Keluar dari akun** di halaman Akun Saya atau **Keluar** di Panel admin untuk menutup sesi demo. Pilih **Masuk demo** untuk melanjutkan.
 
 - **Belanja.** Pilih jam, checkout, buka **Akun → Panel admin → Pesanan**, konfirmasi dan tandai dikirim. Buka **Akun → Riwayat Pesanan**, terima pesanan, lalu beri rating.
 - **Publikasi.** Buka **Akun → Panel admin → Tambah produk**, isi detail dan unggah sampai enam foto, pilih sampul, lalu terbitkan. Foto bisa ditambah atau dihapus ketika mengedit produk.

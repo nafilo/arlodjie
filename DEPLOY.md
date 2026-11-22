@@ -56,6 +56,7 @@ Rujukan [Pendaftaran email dan kata sandi](https://supabase.com/docs/guides/auth
 - Buka **/api/products** pada domain deployment. Respons yang benar berupa JSON dengan delapan jam demo. **/api/banner** boleh berisi null sampai admin menyimpan banner. **/api/orders** dari jendela penyamaran sebelum login seharusnya memberi HTTP 401.
 - Masuk sebagai pembeli. Buka satu jam, pilih **Beli sekarang**, dan buat pesanan dengan alamat fiktif. Periksa **Riwayat Pesanan**. Dengan akun pembeli kedua yang berbeda, pastikan pesanan pertama tidak muncul.
 - Di browser lain, buka `/#admin/masuk` dan masuk sebagai admin. Terbitkan satu produk dengan beberapa foto, simpan banner, lalu konfirmasi dan tandai pesanan dikirim. Pastikan akun admin langsung kembali ke panel jika membuka checkout. Sebagai pembeli, muat ulang pesanan, klik **Pesanan diterima**, lalu beri rating.
+- Uji **Keluar dari akun** dari halaman Akun Saya dan **Keluar** dari header panel admin. Masing-masing kembali ke halaman masuknya.
 - Di Chrome, buka URL HTTPS dan instal melalui menu browser. Pada Safari iPhone, gunakan **Add to Home Screen**. Setelah katalog dimuat, coba buka ulang PWA saat offline. Antarmuka, katalog yang sudah tercache, serta foto demo dapat dibuka. Checkout, login, dan perubahan admin memerlukan koneksi.
 - Cantumkan URL publik dan tautan repo GitHub sesuai kolom pengumpulan, cek keunikan judul, dan catat minimal satu asistensi sesuai ketentuan TA.
 
