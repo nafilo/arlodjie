@@ -1,5 +1,7 @@
 const $ = (selector) => document.querySelector(selector)
 const art = {
+  eye: '<path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6Z"/><circle cx="12" cy="12" r="2.5"/>',
+  eyeOff: '<path d="m3 3 18 18M10 6.2a11 11 0 0 1 2-.2c6.5 0 10 6 10 6a15 15 0 0 1-3 3.4M6 7.6A17 17 0 0 0 2 12s3.5 6 10 6a11 11 0 0 0 4-.8"/>',
   home: '<path d="m3 10 9-7 9 7v10H3z"/><path d="M9 20v-6h6v6"/>',
   grid: '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>',
   user: '<circle cx="12" cy="8" r="3.5"/><path d="M4 21v-1a8 8 0 0 1 16 0v1"/>',
@@ -596,6 +598,13 @@ function cart() {
   return heading('Keranjang')+(items.length?`<div class="panel surface">${items.map(p=>`<div class="list-row"><div class="row">${img(p.img,p.name,'mini')}<div><a href="#produk/${p.id}"><strong>${safe(p.name)}</strong></a><br><small>${rupiah(p.price)}</small></div></div><div class="row"><input type="number" class="qty" data-qty="${p.id}" min="1" max="${cartLimit(p)}" value="${p.qty}" aria-label="Jumlah ${safe(p.name)}">${action('remove','Hapus','text-btn',p.id)}</div></div>`).join('')}<div class="row between"><strong data-cart-subtotal>Subtotal ${rupiah(subtotal())}</strong>${link('checkout','Checkout','btn primary')}</div></div>`:empty('Keranjang kosong','Tambahkan jam dari katalog.',link('katalog','Lihat katalog')))
 }
 const field = (label,name,attr='',type='text') => `<label class="field">${label}<input name="${name}" type="${type}" ${attr}></label>`
+const passwordField = attributes => `<div class="field">
+  <label for="auth-password">Kata sandi</label>
+  <div class="password-field">
+    <input id="auth-password" name="password" type="password" ${attributes}>
+    <button type="button" class="icon-btn" data-action="toggle-password" aria-controls="auth-password" aria-label="Tampilkan kata sandi">${icon('eye')}</button>
+  </div>
+</div>`
 const area = (label,name,attr='') => `<label class="field">${label}<textarea name="${name}" ${attr}></textarea></label>`
 const submit = (label) => `<button class="btn primary" type="submit">${label}</button>`
 function setDemoSession(signedIn) {
@@ -748,7 +757,7 @@ function signIn(status='') {
   ${status==='akun-dibuat'?'<p class="auth-notice" role="status">Akun berhasil dibuat. Masuk dengan email dan kata sandimu.</p>':''}
   <form class="panel form auth-form" data-form="sign-in">
     ${field('Email','email','required maxlength="254" autocomplete="username"','email')}
-    ${field('Kata sandi','password','required maxlength="256" autocomplete="current-password"','password')}
+    ${passwordField('required maxlength="256" autocomplete="current-password"')}
     <p class="auth-error" data-auth-message role="alert"></p>
     ${submit('Masuk')}
   </form>
@@ -759,7 +768,7 @@ function register() {
   return `<div class="auth-shell">${heading('Buat akun')}
       <form class="panel form auth-form" data-form="register">
         ${field('Email','email','required maxlength="254" autocomplete="username"','email')}
-        ${field('Kata sandi','password','required minlength="8" maxlength="72" autocomplete="new-password" aria-describedby="password-help"','password')}
+        ${passwordField('required minlength="8" maxlength="72" autocomplete="new-password" aria-describedby="password-help"')}
         <p id="password-help">Gunakan minimal 8 karakter.</p>
         <p class="auth-error" data-auth-message role="alert"></p>
         ${submit('Buat akun')}
@@ -1233,6 +1242,14 @@ document.addEventListener('click',(e)=>{
   const trigger=e.target.closest('[data-action]')
   if(!trigger)return
   const {action:name,id}=trigger.dataset
+  if(name==='toggle-password'){
+    const password=trigger.form.elements.password
+    const show=password.type==='password'
+    password.type=show?'text':'password'
+    trigger.setAttribute('aria-label',show?'Sembunyikan kata sandi':'Tampilkan kata sandi')
+    trigger.innerHTML=icon(show?'eyeOff':'eye')
+    return
+  }
   if(name==='checkout-quantity'){
     const input=trigger.form.elements.quantity
     const quantity=Math.trunc(input.valueAsNumber)+Number(id)

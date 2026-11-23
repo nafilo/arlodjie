@@ -852,6 +852,18 @@ body > main { flex: 1; }
 .auth-shell .heading h1 { font-size: clamp(2.5rem, 6vw, 4rem); }
 .auth-form { padding: clamp(18px, 4vw, 28px); }
 .auth-form .primary { justify-self: stretch; }
+.password-field { position: relative; }
+.password-field input { min-height: 44px; padding-inline-end: 48px; }
+.password-field input::-ms-reveal { display: none; }
+.password-field .icon-btn {
+  position: absolute;
+  inset-inline-end: 1px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 44px;
+  height: 44px;
+  color: var(--brown);
+}
 .auth-form #password-help { color: var(--muted); font-size: .85rem; }
 .auth-error { color: #8c391e; font-size: .9rem; }
 .auth-error:empty { display: none; }
