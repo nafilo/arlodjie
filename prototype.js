@@ -477,13 +477,77 @@ function hero() {
   return bannerManager.home()
 }
 
+const defaultBrandLogos = new Map([
+  ['casio', 'assets/brands/casio.svg'],
+  ['g-shock', 'assets/brands/g-shock.png'],
+  ['grand seiko', 'assets/brands/grand-seiko.svg'],
+  ['hamilton', 'assets/brands/hamilton.png'],
+  ['seiko', 'assets/brands/seiko.svg'],
+  ['tissot', 'assets/brands/tissot.svg'],
+])
+const brandLogoStorageKey = 'arlodjie.brand-logos.v1'
+const brandLogoKey = brand => brand.normalize('NFKC').trim().toLowerCase()
+let brandLogos = new Map()
+const catalogBrands = () => [...new Set(state.products.map(item=>item.brand))]
+  .sort((a,b)=>a.localeCompare(b,'id',{sensitivity:'base'}))
+const brandLogo = brand => brandLogos.get(brandLogoKey(brand)) || defaultBrandLogos.get(brandLogoKey(brand))
+
+let homeBrandObserver
+function setupHomeBrandScroll() {
+  homeBrandObserver?.disconnect()
+  const rail=$('#home-brand-rail')
+  if(!rail)return
+  const controls=$('.home-brand-controls')
+  const [previous,next]=controls.querySelectorAll('button')
+  const update=()=>{
+    const end=rail.scrollWidth-rail.clientWidth
+    controls.hidden=end<=1
+    previous.disabled=rail.scrollLeft<=1
+    next.disabled=end-rail.scrollLeft<=1
+  }
+  controls.addEventListener('click',event=>{
+    const button=event.target.closest('[data-scroll-brand]')
+    if(!button)return
+    const gap=parseFloat(getComputedStyle(rail).columnGap)
+    const step=rail.firstElementChild.getBoundingClientRect().width+gap
+    rail.scrollBy({
+      left:step*Number(button.dataset.scrollBrand),
+      behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth',
+    })
+  })
+  rail.addEventListener('scroll',update,{passive:true})
+  homeBrandObserver=new ResizeObserver(update)
+  homeBrandObserver.observe(rail)
+  update()
+}
+
 function home() {
-  const featuredIds = ['srpe55', 'f91w', 'presage', 'shunbun']
-  const featured = featuredIds.map(product).filter(Boolean)
-  const otherWatches = state.products.filter(item => !featuredIds.includes(item.id))
-  const featuredWatches = [...featured, ...otherWatches].slice(0, 4)
+  const available=state.products.filter(item=>item.stock>0)
+  const brandSamples=new Map()
+  for(const item of available){
+    if(!brandSamples.has(item.brand))brandSamples.set(item.brand,item)
+  }
+  const bestSellers=available.filter(item=>item.sold>0).sort(sorters.sold[1]).slice(0,4)
+  const featured=bestSellers.length?bestSellers:[...new Set([...brandSamples.values(),...available])].slice(0,4)
+  const brandLinks=catalogBrands().map(brand=>{
+    const src=brandLogo(brand)
+    return src?link('katalog/brand/'+encodeURIComponent(brand),img(src,brand),'home-brand'):''
+  }).join('')
   return `<section id="banner">${hero()}</section>
-    <section class="featured-watches"><div class="shelf-heading"><h2>Jam pilihan</h2>${link('katalog','Lihat katalog'+icon('back'),'shelf-link')}</div>${grid(featuredWatches)}</section>
+    ${brandLinks?`<section class="home-brands" aria-labelledby="home-brands-title">
+      <div class="shelf-heading"><h2 id="home-brands-title">Jelajahi brand</h2>
+        <div class="home-brand-controls" hidden>
+          <button class="icon-btn" type="button" data-scroll-brand="-1" aria-controls="home-brand-rail" aria-label="Geser logo ke kiri">${icon('back')}</button>
+          <button class="icon-btn" type="button" data-scroll-brand="1" aria-controls="home-brand-rail" aria-label="Geser logo ke kanan">${icon('back')}</button>
+        </div>
+      </div>
+      <div class="home-brand-grid" id="home-brand-rail">${brandLinks}</div>
+    </section>`:''}
+    ${featured.length?`<section class="featured-watches" aria-labelledby="featured-watches-title">
+      <div class="shelf-heading"><h2 id="featured-watches-title">${bestSellers.length?'Terlaris':'Jam pilihan'}</h2></div>
+      ${grid(featured)}
+    </section>`:''}
+    <div class="home-catalog-link">${link('katalog/semua','Lihat semua jam'+icon('back'),'btn primary')}</div>
     <p class="catalog-note">Harga dan stok adalah data demo.</p>`
 }
 
@@ -842,7 +906,7 @@ async function selectProfilePhoto(form,file) {
   }
 }
 function adminShell(section,content) {
-  const sections=[['admin','Produk'],['admin/pesanan','Pesanan'],['admin/banner','Banner beranda']]
+  const sections=[['admin','Produk'],['admin/pesanan','Pesanan'],['admin/banner','Banner beranda'],['admin/logo-brand','Logo brand']]
   const title=shopApi.enabled?heading('Panel admin'):`<div class="row between">${heading('Panel admin')}
     ${action('sign-out',icon('logout')+'Keluar','btn account-sign-out')}</div>`
   return title+`<div class="dashboard"><nav class="side panel" aria-label="Kelola toko">${sections.map(([url,label])=>`<a href="#${url}" ${section===url?'class="active" aria-current="page"':''}>${label}</a>`).join('')}</nav><section class="panel stack admin-content">${content}</section></div>`
@@ -854,6 +918,28 @@ function adminProducts() {
     <span class="inventory-stock">${p.stock?'Stok '+p.stock:'Habis'}</span>
     <span class="go-detail" aria-hidden="true">${icon('back')}</span></a>`).join('')
   return adminShell('admin',`<div class="row between inventory-heading"><h2>Produk</h2>${link('admin/tambah','Tambah produk','btn primary')}</div>${rows?`<div class="inventory">${rows}</div>`:'<p>Belum ada produk di katalog.</p>'}`)
+}
+
+function adminBrandLogos() {
+  const brands=catalogBrands()
+  return adminShell('admin/logo-brand',`<h2>Logo brand</h2>${brands.length?`
+    <form class="form" data-form="brand-logo">
+      <div class="field">
+        <label for="brand-logo-brand">Brand</label>
+        <select id="brand-logo-brand" name="brand" required>
+          <option value="">Pilih brand dari katalog</option>
+          ${brands.map(brand=>`<option value="${safe(brand)}">${safe(brand)}</option>`).join('')}
+        </select>
+      </div>
+      <div class="brand-logo-current" hidden></div>
+      <label class="btn photo-picker">Pilih file logo
+        <input type="file" name="logo" accept="${photoTypes.join(',')}" required aria-describedby="brand-logo-help">
+      </label>
+      <p class="brand-logo-filename" hidden></p>
+      <p id="brand-logo-help">JPG, PNG, atau WebP hingga 5 MB. Pakai PNG transparan agar logo menyatu dengan latar.</p>
+      <p class="form-error" role="status"></p>
+      <button class="btn primary" type="submit">Simpan logo</button>
+    </form>`:'<p>Tambahkan produk ke katalog untuk mengatur logo brand.</p>'}`)
 }
 
 function adminPhotoPreviews() {
@@ -949,6 +1035,7 @@ function adminPage(section,id) {
   if(section==='tambah')return adminForm()
   if(section==='pesanan')return adminOrders()
   if(section==='banner')return bannerManager.admin()
+  if(section==='logo-brand')return adminBrandLogos()
   if(section==='edit' && product(id))return adminForm(product(id))
   return missingPage('Halaman admin tidak ditemukan','admin','Kembali ke produk')
 }
@@ -973,6 +1060,7 @@ function render(scroll=false) {
   draftPhotos=[]
   if(page==='katalog'&&active!==location.hash) {
     if(id==='budget'){state.min='';state.max='2000000';state.brands=[];state.query='';state.stars=0}
+    if(id==='semua')Object.assign(state,{brands:[],min:'',max:'',stars:0,query:''})
     if(id==='brand'){
       let brand=''
       try { brand=decodeURIComponent(sub||'') } catch { /* Invalid shared link. */ }
@@ -1020,6 +1108,7 @@ function render(scroll=false) {
     window.scrollTo(0,0)
   }
   bannerManager.schedule()
+  setupHomeBrandScroll()
   if(guardedCheckout)openCheckoutAuth(guardedCheckout)
 }
 function toast(message) {
@@ -1218,6 +1307,20 @@ document.addEventListener('input',(e)=>{
   input.setSelectionRange(position,position)
 })
 document.addEventListener('change',(e)=>{
+  if(e.target.matches('[data-form="brand-logo"] [name="brand"]')){
+    const brand=e.target.value
+    const preview=e.target.form.querySelector('.brand-logo-current')
+    const src=brandLogo(brand)
+    preview.hidden=!brand
+    preview.innerHTML=src?img(src,'Logo '+brand):'<span class="muted">Belum ada logo</span>'
+    return
+  }
+  if(e.target.matches('[data-form="brand-logo"] [name="logo"]')){
+    const filename=e.target.form.querySelector('.brand-logo-filename')
+    filename.textContent=e.target.files[0]?.name||''
+    filename.hidden=!filename.textContent
+    return
+  }
   const t=e.target
   if(t.name==='profilePhoto'&&t.form?.dataset.form==='profile'){
     const file=t.files?.[0]
@@ -1448,6 +1551,48 @@ document.addEventListener('submit',async(e)=>{
   const type=form.dataset.form
   if(!type)return
   e.preventDefault()
+  if(type==='brand-logo'){
+    if(!canAdmin())return
+    const {brand,logo}=form.elements
+    const file=logo.files[0]
+    const name=brand.value
+    const feedback=form.querySelector('[role="status"]')
+    const save=form.querySelector('[type="submit"]')
+    if(!catalogBrands().includes(name)||!file)return
+    if(!photoTypes.includes(file.type)||!file.size||file.size>5*1024*1024){
+      feedback.textContent='Pilih logo JPG, PNG, atau WebP hingga 5 MB.'
+      return
+    }
+    await shopTask(save,async()=>{
+      const options={maxSize:500,keepAlpha:true}
+      if(shopApi.enabled){
+        const src=await shopApi.upload(file,options).catch(error=>{
+          if(error instanceof DOMException)throw new Error('Logo gagal dibaca. Pilih berkas gambar lain.')
+          throw error
+        })
+        const saved=await shopApi.request('brand-logos','PUT',{brand:name,src})
+        brandLogos.set(brandLogoKey(saved.brand),saved.src)
+      }else{
+        const src=await preparePhoto(file,options).catch(()=>{
+          throw new Error('Logo gagal dibaca. Pilih berkas gambar lain.')
+        })
+        const updated=new Map(brandLogos).set(brandLogoKey(name),src)
+        try {
+          localStorage.setItem(brandLogoStorageKey,JSON.stringify([...updated]))
+        } catch {
+          throw new Error('Penyimpanan browser penuh. Coba unggah logo yang lebih kecil.')
+        }
+        brandLogos=updated
+      }
+      if(form.isConnected&&brand.value===name){
+        logo.value=''
+        logo.dispatchEvent(new Event('change',{bubbles:true}))
+        brand.dispatchEvent(new Event('change',{bubbles:true}))
+      }
+      toast('Logo '+name+' tersimpan.')
+    },feedback)
+    return
+  }
   const data=new FormData(form)
   const value=Object.fromEntries(data)
   if(type==='register'){
@@ -1726,18 +1871,21 @@ document.addEventListener('submit',async(e)=>{
 })
 async function startShop(){
   if(shopApi.enabled){
-    const [catalog,session,banner]=await Promise.allSettled([
-      shopApi.request('products'),shopApi.request('session'),shopApi.request('banner'),
+    const [catalog,session,banner,logos]=await Promise.allSettled([
+      shopApi.request('products'),shopApi.request('session'),shopApi.request('banner'),shopApi.request('brand-logos'),
     ])
     catalogUnavailable=catalog.status==='rejected'
     state.products=catalogUnavailable?[]:catalog.value
     setShopUser(session.value?.user||null)
     if(banner.status==='fulfilled')bannerManager.load(banner.value)
+    if(logos.status==='fulfilled')brandLogos=new Map(logos.value.map(({brand,src})=>[brandLogoKey(brand),src]))
     await refreshOrders()
     render()
     return
   }
   loadProfile()
+  try { brandLogos=new Map(JSON.parse(localStorage.getItem(brandLogoStorageKey)||'[]')) }
+  catch { /* Default logos are available if local storage is inaccessible. */ }
   try{
     demoSignedIn=localStorage.getItem(demoSessionKey)!=='signed-out'
     await restoreCommerce(localStorage.getItem(commerceKey()))

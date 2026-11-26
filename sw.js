@@ -1,8 +1,10 @@
 const cachePrefix = 'arlodjie-static-' + new URL(self.registration.scope).pathname + '-'
-const cacheName = cachePrefix + 'v13'
+const cacheName = cachePrefix + 'v15'
 const files = [
   'index.html','styles.css','banner.css','image-file.js','photo-storage.js','shop-api.js','banner.js','prototype.js','pwa.js',
   'app.webmanifest','logo.svg','lockup.svg','assets/app-192.png','assets/app-512.png',
+  'assets/brands/casio.svg','assets/brands/g-shock.png','assets/brands/grand-seiko.svg',
+  'assets/brands/hamilton.png','assets/brands/seiko.svg','assets/brands/tissot.svg',
   'assets/dm-sans.woff2','assets/cormorant-garamond.woff2',
   'assets/alpinist.png','assets/f91w.jpg','assets/field.jpg','assets/gshock.png','assets/hero.jpg',
   'assets/leather.jpg','assets/murph-front.jpg','assets/murph.jpg','assets/presage.jpg','assets/prx.jpg',

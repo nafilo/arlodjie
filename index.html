@@ -32,8 +32,19 @@
   </header>
   <main id="main" tabindex="-1"><p role="status">Memuat Arlodjie…</p></main>
   <footer class="store-footer">
-    <div class="store-footer-inner"><a href="#tentang" id="footer-about">About Us</a></div>
+    <div class="store-footer-inner">
+      <a href="#tentang" id="footer-about">About Us</a>
+      <button type="button" id="install-app" hidden>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m-4-4 4 4 4-4M4 16v4h16v-4"/></svg>
+        Instal aplikasi
+      </button>
+    </div>
   </footer>
+  <dialog id="install-help" aria-labelledby="install-help-title" aria-describedby="install-help-copy">
+    <h2 id="install-help-title">Instal Arlodjie</h2>
+    <p id="install-help-copy"></p>
+    <form method="dialog"><button type="submit" class="btn" autofocus>Tutup</button></form>
+  </dialog>
   <dialog id="sheet"></dialog>
   <dialog id="checkout-auth" aria-labelledby="checkout-auth-title" aria-describedby="checkout-auth-copy">
     <form method="dialog">

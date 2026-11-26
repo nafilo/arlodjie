@@ -1,5 +1,5 @@
 // Make a browser-sized copy for the avatar or banner, without changing the uploaded file.
-async function preparePhoto(source, {maxSize = 1400, square = false} = {}) {
+async function preparePhoto(source, {maxSize = 1400, square = false, keepAlpha = false} = {}) {
   const fileUrl = source instanceof Blob ? URL.createObjectURL(source) : ''
   const image = new Image()
   try {
@@ -14,8 +14,10 @@ async function preparePhoto(source, {maxSize = 1400, square = false} = {}) {
     canvas.width = Math.max(1, Math.round(cropWidth * scale))
     canvas.height = Math.max(1, Math.round(cropHeight * scale))
     const context = canvas.getContext('2d')
-    context.fillStyle = '#ffffff'
-    context.fillRect(0, 0, canvas.width, canvas.height)
+    if (!keepAlpha) {
+      context.fillStyle = '#ffffff'
+      context.fillRect(0, 0, canvas.width, canvas.height)
+    }
     context.drawImage(image, (width - cropWidth) / 2, (height - cropHeight) / 2,
       cropWidth, cropHeight, 0, 0, canvas.width, canvas.height)
     return canvas.toDataURL('image/webp', 0.85)

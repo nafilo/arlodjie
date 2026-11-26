@@ -182,8 +182,11 @@ export async function handle(request, resource) {
       const [row] = await rest('arlodjie_banner?select=data&id=eq.1')
       return json(row?.data ?? null)
     }
+    if (resource === 'brand-logos' && method === 'GET') {
+      return json(await rest('arlodjie_brand_logos?select=brand,src'))
+    }
 
-    requireValue(['products', 'banner', 'photos', 'orders', 'review'].includes(resource), 'API tidak ditemukan.', 404)
+    requireValue(['products', 'banner', 'brand-logos', 'photos', 'orders', 'review'].includes(resource), 'API tidak ditemukan.', 404)
     const actor = await user()
     requireValue(actor, 'Masuk ke akun terlebih dahulu.', 401)
 
@@ -228,7 +231,7 @@ export async function handle(request, resource) {
       }))
     }
 
-    if (['products', 'banner', 'photos'].includes(resource))
+    if (['products', 'banner', 'brand-logos', 'photos'].includes(resource))
       requireValue(actor.admin, 'Akses khusus admin.', 403)
     if (resource === 'products' && method === 'PUT') {
       const input = await bodyAsJson(request)
@@ -247,6 +250,19 @@ export async function handle(request, resource) {
       const data = bannerDetails(await bodyAsJson(request), supabaseUrl)
       await rest('arlodjie_banner', { method: 'POST', body: { id: 1, data }, prefer: 'resolution=merge-duplicates' })
       return json(data)
+    }
+    if (resource === 'brand-logos' && method === 'PUT') {
+      const { brand, src } = await bodyAsJson(request) || {}
+      requireValue(validText(brand, 80) && brand.trim(), 'Pilih brand yang valid.')
+      requireValue(validPhoto(src, supabaseUrl) && src.startsWith(publicPhoto(supabaseUrl, '')),
+        'Unggah file logo terlebih dahulu.')
+      const row = { brand: brand.trim(), src }
+      await rest('arlodjie_brand_logos', {
+        method: 'POST',
+        body: { ...row, brand_key: row.brand.normalize('NFKC').toLowerCase() },
+        prefer: 'resolution=merge-duplicates',
+      })
+      return json(row)
     }
     if (resource === 'photos' && method === 'POST') {
       requireValue(request.headers.get('content-type') === 'image/webp', 'Gunakan foto WebP.')

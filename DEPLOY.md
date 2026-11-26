@@ -22,6 +22,8 @@ Arlodjie memakai halaman statis untuk PWA, fungsi Node.js di Vercel untuk API Ar
 
 API membaca `app_metadata.arlodjie_admin` dari akun Supabase. Hanya nilai boolean `true` yang membuka akses admin. Form pendaftaran web hanya membuat akun pembeli. Untuk membuat admin baru, gunakan **Add user** dan kueri pada langkah 4. Kedua peran memakai halaman `/#masuk`, dan akun admin langsung diarahkan ke panelnya.
 
+Jalankan juga [supabase/brand-logos.sql](supabase/brand-logos.sql) di **SQL Editor** untuk mengaktifkan **Panel admin → Logo brand**. Proyek Supabase yang sudah berjalan cukup menjalankan skrip tambahan ini.
+
 Rujukan [Kunci API Supabase](https://supabase.com/docs/guides/getting-started/api-keys) · [Pengaturan Auth](https://supabase.com/docs/guides/auth/general-configuration)
 
 ## 2. Deploy ke Vercel
@@ -57,7 +59,7 @@ Rujukan [Membuat akun dengan Supabase Auth Admin API](https://supabase.com/docs/
 - Tanpa akun, buka satu jam lalu pilih **Beli sekarang**. Pilih **Masuk** dari dialog dan pastikan checkout kembali membuka jam yang sama. Buat pesanan dengan alamat fiktif dan periksa **Riwayat Pesanan**. Dengan akun pembeli kedua yang berbeda, pastikan pesanan pertama tidak muncul.
 - Di browser lain, buka `/#masuk` dan gunakan akun admin. Pastikan aplikasi langsung membuka panel admin. Terbitkan satu produk dengan beberapa foto, simpan banner, lalu konfirmasi dan tandai pesanan dikirim. Pastikan akun admin langsung kembali ke panel jika membuka checkout. Sebagai pembeli, muat ulang pesanan, klik **Pesanan diterima**, lalu beri rating.
 - Uji **Keluar dari akun** dari halaman Akun Saya dan **Keluar** dari header panel admin. Keduanya kembali ke halaman masuk yang sama.
-- Di Chrome, buka URL HTTPS dan instal melalui menu browser. Pada Safari iPhone, gunakan **Add to Home Screen**. Setelah katalog dimuat, coba buka ulang PWA saat offline. Antarmuka, katalog yang sudah tercache, serta foto demo dapat dibuka. Checkout, login, dan perubahan admin memerlukan koneksi.
+- Buka URL HTTPS lalu pilih **Instal aplikasi** di footer. Chrome menampilkan dialog instalasi jika tersedia. Pada Safari iPhone, ikuti petunjuk **Tambahkan ke Layar Utama**. Setelah katalog dimuat, coba buka ulang PWA saat offline. Antarmuka, katalog yang sudah tercache, serta foto demo dapat dibuka. Checkout, login, dan perubahan admin memerlukan koneksi.
 - Cantumkan URL publik dan tautan repo GitHub sesuai kolom pengumpulan, cek keunikan judul, dan catat minimal satu asistensi sesuai ketentuan TA.
 
 ## Data demo dan penyimpanan

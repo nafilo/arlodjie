@@ -771,20 +771,23 @@ body > main { flex: 1; }
   background: var(--white);
   color: var(--muted);
 }
-.store-footer-inner { width: min(1280px, 100%); margin: auto; padding: 8px 28px; }
-.store-footer a {
+.store-footer-inner { width: min(1280px, 100%); margin: auto; padding: 8px 28px; display: flex; flex-wrap: wrap; gap: 6px 24px; }
+.store-footer a, #install-app:not([hidden]) {
   display: inline-flex;
   align-items: center;
   min-height: 44px;
   gap: 8px;
   font-size: .92rem;
 }
-.store-footer a svg { width: 18px; height: 18px; }
-.store-footer a:hover, .store-footer a[aria-current="page"] {
+.store-footer svg { width: 18px; height: 18px; }
+#install-app { border: 0; padding: 0; background: transparent; }
+.store-footer a:hover, .store-footer a[aria-current="page"], #install-app:hover {
   color: var(--brown);
   text-decoration: underline;
   text-underline-offset: 3px;
 }
+#install-help { width: min(440px, 100%); }
+#install-help p { margin: 12px 0 20px; }
 @media (min-width: 801px) {
   .top-inner {
     min-height: 78px;
@@ -838,10 +841,10 @@ body > main { flex: 1; }
   .store-footer {
     text-align: center;
   }
-  .store-footer-inner { padding: 8px 16px calc(78px + env(safe-area-inset-bottom)); }
+  .store-footer-inner { justify-content: center; padding: 8px 16px calc(78px + env(safe-area-inset-bottom)); }
 }
 
-.shelf-link:hover, .product-brand:hover, .card h3 a:hover {
+.product-brand:hover, .card h3 a:hover {
   text-decoration: underline;
   text-underline-offset: .2em;
 }
@@ -900,7 +903,63 @@ body > main { flex: 1; }
 .admin-area .top-inner { grid-template-columns: minmax(0, 1fr) auto; }
 .admin-area #nav, .admin-area #search, .admin-area .top-actions, .admin-area .store-footer { display: none; }
 .admin-area #main { padding-bottom: 36px; }
-.featured-watches { margin-top: clamp(20px, 3vw, 38px); }
+.home-brands, .featured-watches { margin-top: clamp(24px, 3.5vw, 46px); }
+.home-brand-grid {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(120px, 1fr);
+  gap: clamp(8px, 1vw, 14px);
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  scroll-snap-type: inline proximity;
+  scrollbar-width: thin;
+  scrollbar-color: var(--gold) transparent;
+  padding-bottom: 5px;
+}
+.home-brand-controls:not([hidden]) { display: flex; gap: 4px; }
+.home-brand-controls .icon-btn { min-width: 44px; min-height: 44px; }
+.home-brand-controls svg { width: 18px; height: 18px; }
+.home-brand-controls button:last-child svg { transform: rotate(180deg); }
+.home-brand:focus-visible { outline-offset: -4px; }
+.brand-logo-current:not([hidden]) {
+  min-height: 68px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 10px;
+}
+.brand-logo-current img {
+  width: 108px;
+  height: 40px;
+  object-fit: contain;
+}
+[data-form="brand-logo"] .form-error:empty { display: none; }
+[data-form="brand-logo"] .form-error { color: #8f322b; }
+.brand-logo-filename { font-size: .88rem; overflow-wrap: anywhere; }
+.home-brand {
+  display: grid;
+  place-items: center;
+  min-height: clamp(68px, 6.6vw, 96px);
+  padding: 12px;
+  background: var(--white);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  scroll-snap-align: start;
+}
+.home-brand:hover { background: var(--sand); border-color: var(--gold); }
+.home-brand img {
+  display: block;
+  width: min(100%, 108px);
+  height: clamp(25px, 3vw, 41px);
+  object-fit: contain;
+}
+.home-catalog-link { display: flex; justify-content: center; margin-top: clamp(24px, 4vw, 44px); }
+.home-catalog-link svg { width: 16px; height: 16px; transform: rotate(180deg); }
+@media (max-width: 700px) {
+  .home-brand-grid { grid-auto-columns: clamp(112px, 32vw, 144px); }
+  .home-brand { padding-inline: 10px; }
+}
 .shelf-heading, .catalog-heading {
   display: flex;
   align-items: baseline;
@@ -913,16 +972,6 @@ body > main { flex: 1; }
   font-size: clamp(2rem, 3.3vw, 3rem);
   line-height: 1.07;
 }
-.shelf-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  min-height: 40px;
-  color: var(--brown);
-  font-weight: 600;
-  font-size: .88rem;
-}
-.shelf-link svg { width: 16px; transform: rotate(180deg); }
 .catalog-heading { padding: 6px 0 14px; border-bottom: 1px solid var(--line); }
 .catalog-heading h1 { line-height: 1.06; }
 #catalog-count, .catalog-note { font-size: .83rem; color: var(--muted); }

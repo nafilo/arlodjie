@@ -34,6 +34,32 @@ const account = admin => ({
   app_metadata: { arlodjie_admin: admin },
 })
 
+test('brand logos can be read publicly and only admins can save an uploaded logo', async t => {
+  const src = env.SUPABASE_URL + '/storage/v1/object/public/arlodjie-photos/22222222-2222-4222-8222-222222222222.webp'
+  const logo = { brand: 'Grand Seiko', src }
+  let stored = []
+  setup(t, (url, options) => {
+    if (url.pathname === '/auth/v1/user')
+      return Response.json(account(options.headers.Authorization === 'Bearer admin'))
+    assert.equal(url.pathname, '/rest/v1/arlodjie_brand_logos')
+    if (options.method === 'GET') return Response.json(stored)
+    assert.equal(options.headers.Prefer, 'resolution=merge-duplicates')
+    const { brand_key, ...row } = JSON.parse(options.body)
+    assert.equal(brand_key, 'grand seiko')
+    stored = [row]
+    return new Response(null, { status: 201 })
+  })
+  const save = (body, token) => call('brand-logos', { method: 'PUT', body, token })
+  assert.equal((await save(logo)).status, 401)
+  assert.equal((await save(logo, 'buyer')).status, 403)
+  assert.equal((await save({ ...logo, src: 'https://example.invalid/logo.webp' }, 'admin')).status, 400)
+  const response = await save({ ...logo, brand: ' Grand Seiko ' }, 'admin')
+  assert.equal(response.status, 200)
+  assert.deepEqual(await response.json(), logo)
+  const publicResponse = await call('brand-logos', { method: 'GET' })
+  assert.deepEqual(await publicResponse.json(), [logo])
+})
+
 test('one login derives the account role from Supabase', async t => {
   setup(t, (url, { body }) => {
     assert.equal(url.pathname, '/auth/v1/token')

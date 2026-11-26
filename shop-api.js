@@ -23,8 +23,8 @@ const shopApi = (() => {
     return result
   }
 
-  async function upload(source) {
-    const preview = await preparePhoto(source, {maxSize: 1200})
+  async function upload(source, options) {
+    const preview = await preparePhoto(source, {maxSize: 1200, ...options})
     const blob = await (await fetch(preview)).blob()
     const {url} = await request('photos', 'POST', blob)
     return url
