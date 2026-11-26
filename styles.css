@@ -926,9 +926,7 @@ body > main { flex: 1; }
 .catalog-heading { padding: 6px 0 14px; border-bottom: 1px solid var(--line); }
 .catalog-heading h1 { line-height: 1.06; }
 #catalog-count, .catalog-note { font-size: .83rem; color: var(--muted); }
-.catalog-heading-actions, .product-toolbar { display: flex; align-items: center; gap: 12px; }
-.catalog-heading-actions { flex-wrap: wrap; }
-.product-toolbar { justify-content: space-between; }
+.product-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .share-button { min-height: 44px; border-radius: 5px; font-size: .88rem; }
 .share-button svg { width: 17px; height: 17px; }
 .catalog-note { margin-top: 28px; }

@@ -429,7 +429,6 @@ async function shopTask(control, task, message) {
 const canAdmin = () => !shopApi.enabled || shopUser?.admin
 const link = (to, label, cls='btn') => `<a class="${cls}" href="#${to}">${label}</a>`
 const action = (name, label, cls='btn', id='') => `<button type="button" class="${cls}" data-action="${name}" data-id="${safe(id)}">${label}</button>`
-const shareButton = (id='') => `<button type="button" class="btn share-button" data-action="share-link" data-id="${safe(id)}" aria-label="Bagikan ${id?'produk':'katalog'}">${icon('share')}Bagikan</button>`
 const heading = (title, desc='') => `<header class="heading"><h1>${title}</h1>${desc ? `<p>${desc}</p>` : ''}</header>`
 const back = (to, label) => link(to,icon('back')+label,'back')
 const empty = (title,desc,cta='') => `<section class="panel empty"><h2>${title}</h2><p>${desc}</p>${cta}</section>`
@@ -517,7 +516,7 @@ function productList() {
     item.rating>=Number(state.stars) && terms.every(term=>brandKey([item.brand,item.name,item.reference,item.brand==='Grand Seiko'?'GS':''].join(' ')).includes(term))
   ).sort(sorters[state.sort][1])
   const hasFilters=Boolean(state.brands.length||state.min||state.max||state.stars)
-  return `<header class="catalog-heading"><h1>Katalog jam</h1><div class="catalog-heading-actions"><span id="catalog-count">${items.length} produk</span>${shareButton()}</div></header>
+  return `<header class="catalog-heading"><h1>Katalog jam</h1><span id="catalog-count">${items.length} produk</span></header>
   <div class="filters-bar"><button type="button" class="btn${hasFilters?' filter-active':''}" data-action="filter" aria-haspopup="dialog" aria-controls="sheet" aria-describedby="catalog-count">${icon('filter')}Filter</button>
     <label class="sort-control"><span>Urutkan</span><select id="sort" class="select" aria-label="Urutkan katalog">${Object.entries(sorters).map(([id,[name]])=>`<option value="${id}" ${id===state.sort?'selected':''}>${name}</option>`).join('')}</select></label>
   </div>
@@ -533,7 +532,9 @@ function detail(item) {
   const selected=selectedPhotoIndex(item,pictures)
   const picture=pictures[selected]
   const reviewEntries=shopApi.enabled?item.publicReviews||[]:state.orders.map(order=>order.rated?.[item.id]).filter(Boolean)
-  return `<div class="product-toolbar">${back('katalog','Katalog')}${shareButton(item.id)}</div><div class="product-layout">
+  return `<div class="product-toolbar">${back('katalog','Katalog')}
+    <button type="button" class="btn share-button" data-action="share-link" data-id="${safe(item.id)}" aria-label="Bagikan produk">${icon('share')}Bagikan</button>
+  </div><div class="product-layout">
     <div class="product-identity">
       ${link('katalog/brand/'+encodeURIComponent(item.brand),safe(item.brand),'product-brand')}
       <h1 translate="no">${safe(item.name)}</h1>
@@ -1027,13 +1028,12 @@ function toast(message) {
   toast.timer=window.setTimeout(()=>{$('#toast').textContent=''},2400)
 }
 async function sharePage(trigger) {
-  const id=trigger.dataset.id
-  const item=id?product(id):null
-  if(id&&!item)return
+  const item=product(trigger.dataset.id)
+  if(!item)return
   const url=new URL(shopApi.enabled?location.href:'https://arlodjie.vercel.app/')
   url.search=''
-  url.hash=item?'produk/'+encodeURIComponent(item.id):'katalog'
-  const title=item?`${item.brand} ${item.name} · Arlodjie`:'Katalog jam · Arlodjie'
+  url.hash='produk/'+encodeURIComponent(item.id)
+  const title=`${item.brand} ${item.name} · Arlodjie`
 
   if(typeof navigator.share==='function'){
     try {
@@ -1051,7 +1051,7 @@ async function sharePage(trigger) {
     if(!trigger.isConnected||sheet.open)return
     sheet.setAttribute('aria-labelledby','share-link-title')
     sheet.innerHTML=`<div class="stack">
-      <h2 id="share-link-title">Bagikan ${item?'produk':'katalog'}</h2>
+      <h2 id="share-link-title">Bagikan produk</h2>
       <p>Salin tautan ini untuk membagikannya.</p>
       ${field('Tautan','shareLink',`value="${safe(url.href)}" readonly autofocus`)}
       <div class="row">${action('close','Tutup')}</div>
