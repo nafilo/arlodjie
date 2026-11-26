@@ -1,5 +1,5 @@
 const cachePrefix = 'arlodjie-static-' + new URL(self.registration.scope).pathname + '-'
-const cacheName = cachePrefix + 'v15'
+const cacheName = cachePrefix + 'v16'
 const files = [
   'index.html','styles.css','banner.css','image-file.js','photo-storage.js','shop-api.js','banner.js','prototype.js','pwa.js',
   'app.webmanifest','logo.svg','lockup.svg','assets/app-192.png','assets/app-512.png',

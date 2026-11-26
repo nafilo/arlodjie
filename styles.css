@@ -916,6 +916,7 @@ body > main { flex: 1; }
   scrollbar-color: var(--gold) transparent;
   padding-bottom: 5px;
 }
+.home-brand-grid.is-looping { scrollbar-width: none; }
 .home-brand-controls:not([hidden]) { display: flex; gap: 4px; }
 .home-brand-controls .icon-btn { min-width: 44px; min-height: 44px; }
 .home-brand-controls svg { width: 18px; height: 18px; }

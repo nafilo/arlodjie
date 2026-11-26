@@ -498,24 +498,67 @@ function setupHomeBrandScroll() {
   const rail=$('#home-brand-rail')
   if(!rail)return
   const controls=$('.home-brand-controls')
-  const [previous,next]=controls.querySelectorAll('button')
+  const logos=[...rail.children]
+  let copies=[]
+  let cycleWidth=0
+  const repeatLogos=()=>logos.map(logo=>{
+    const copy=logo.cloneNode(true)
+    copy.setAttribute('aria-hidden','true')
+    copy.tabIndex=-1
+    return copy
+  })
+  const recenter=()=>{
+    if(!cycleWidth)return
+    const left=rail.scrollLeft
+    // Shift to the matching position in the middle copy after the gesture ends.
+    if(left<cycleWidth-1)rail.scrollTo({left:left+cycleWidth,behavior:'instant'})
+    else if(left>=2*cycleWidth-1)rail.scrollTo({left:left-cycleWidth,behavior:'instant'})
+  }
   const update=()=>{
-    const end=rail.scrollWidth-rail.clientWidth
-    controls.hidden=end<=1
-    previous.disabled=rail.scrollLeft<=1
-    next.disabled=end-rail.scrollLeft<=1
+    const width=logos.at(-1).getBoundingClientRect().right-logos[0].getBoundingClientRect().left
+    const needsLoop=logos.length>1&&width>rail.clientWidth+1
+    controls.hidden=!needsLoop
+    if(!needsLoop){
+      copies.forEach(copy=>copy.remove())
+      copies=[]
+      cycleWidth=0
+      rail.classList.remove('is-looping')
+      return
+    }
+    if(!copies.length){
+      const before=repeatLogos()
+      const after=repeatLogos()
+      rail.prepend(...before)
+      rail.append(...after)
+      copies=[...before,...after]
+      rail.classList.add('is-looping')
+    }
+    const nextWidth=logos[0].getBoundingClientRect().left-rail.firstElementChild.getBoundingClientRect().left
+    if(Math.abs(nextWidth-cycleWidth)>0.5){
+      const progress=cycleWidth?(rail.scrollLeft/cycleWidth)%1:0
+      cycleWidth=nextWidth
+      rail.scrollTo({left:cycleWidth*(1+progress),behavior:'instant'})
+    }
   }
   controls.addEventListener('click',event=>{
     const button=event.target.closest('[data-scroll-brand]')
-    if(!button)return
-    const gap=parseFloat(getComputedStyle(rail).columnGap)
-    const step=rail.firstElementChild.getBoundingClientRect().width+gap
-    rail.scrollBy({
-      left:step*Number(button.dataset.scrollBrand),
+    if(!button||!cycleWidth)return
+    recenter()
+    const step=cycleWidth/logos.length
+    const index=Math.round(rail.scrollLeft/step)
+    rail.scrollTo({
+      left:step*(index+Number(button.dataset.scrollBrand)),
       behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth',
     })
   })
-  rail.addEventListener('scroll',update,{passive:true})
+  if('onscrollend' in rail)rail.addEventListener('scrollend',recenter)
+  else {
+    let settleTimer
+    rail.addEventListener('scroll',()=>{
+      clearTimeout(settleTimer)
+      settleTimer=setTimeout(recenter,160)
+    },{passive:true})
+  }
   homeBrandObserver=new ResizeObserver(update)
   homeBrandObserver.observe(rail)
   update()
@@ -523,12 +566,13 @@ function setupHomeBrandScroll() {
 
 function home() {
   const available=state.products.filter(item=>item.stock>0)
+  const bestSellers=available.filter(item=>item.sold>0).sort(sorters.sold[1]).slice(0,4)
+  const soldBrands=new Set(bestSellers.map(item=>item.brand))
   const brandSamples=new Map()
   for(const item of available){
-    if(!brandSamples.has(item.brand))brandSamples.set(item.brand,item)
+    if(!soldBrands.has(item.brand)&&!brandSamples.has(item.brand))brandSamples.set(item.brand,item)
   }
-  const bestSellers=available.filter(item=>item.sold>0).sort(sorters.sold[1]).slice(0,4)
-  const featured=bestSellers.length?bestSellers:[...new Set([...brandSamples.values(),...available])].slice(0,4)
+  const featured=[...new Set([...bestSellers,...brandSamples.values(),...available])].slice(0,4)
   const brandLinks=catalogBrands().map(brand=>{
     const src=brandLogo(brand)
     return src?link('katalog/brand/'+encodeURIComponent(brand),img(src,brand),'home-brand'):''
@@ -544,7 +588,7 @@ function home() {
       <div class="home-brand-grid" id="home-brand-rail">${brandLinks}</div>
     </section>`:''}
     ${featured.length?`<section class="featured-watches" aria-labelledby="featured-watches-title">
-      <div class="shelf-heading"><h2 id="featured-watches-title">${bestSellers.length?'Terlaris':'Jam pilihan'}</h2></div>
+      <div class="shelf-heading"><h2 id="featured-watches-title">${bestSellers.length===featured.length?'Terlaris':'Jam pilihan'}</h2></div>
       ${grid(featured)}
     </section>`:''}
     <div class="home-catalog-link">${link('katalog/semua','Lihat semua jam'+icon('back'),'btn primary')}</div>
