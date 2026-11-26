@@ -925,7 +925,12 @@ body > main { flex: 1; }
 .shelf-link svg { width: 16px; transform: rotate(180deg); }
 .catalog-heading { padding: 6px 0 14px; border-bottom: 1px solid var(--line); }
 .catalog-heading h1 { line-height: 1.06; }
-.catalog-heading > span, .catalog-note { font-size: .83rem; color: var(--muted); }
+#catalog-count, .catalog-note { font-size: .83rem; color: var(--muted); }
+.catalog-heading-actions, .product-toolbar { display: flex; align-items: center; gap: 12px; }
+.catalog-heading-actions { flex-wrap: wrap; }
+.product-toolbar { justify-content: space-between; }
+.share-button { min-height: 44px; border-radius: 5px; font-size: .88rem; }
+.share-button svg { width: 17px; height: 17px; }
 .catalog-note { margin-top: 28px; }
 .filters-bar { flex-wrap: nowrap; margin: 14px 0 20px; }
 .filters-bar .btn, .filters-bar .select { min-height: 44px; border-radius: 5px; }

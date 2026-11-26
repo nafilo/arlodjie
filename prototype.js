@@ -1,5 +1,6 @@
 const $ = (selector) => document.querySelector(selector)
 const art = {
+  share: '<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.7 10.5 6.6-3.9m-6.6 6.9 6.6 3.9"/>',
   eye: '<path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6Z"/><circle cx="12" cy="12" r="2.5"/>',
   eyeOff: '<path d="m3 3 18 18M10 6.2a11 11 0 0 1 2-.2c6.5 0 10 6 10 6a15 15 0 0 1-3 3.4M6 7.6A17 17 0 0 0 2 12s3.5 6 10 6a11 11 0 0 0 4-.8"/>',
   home: '<path d="m3 10 9-7 9 7v10H3z"/><path d="M9 20v-6h6v6"/>',
@@ -428,6 +429,7 @@ async function shopTask(control, task, message) {
 const canAdmin = () => !shopApi.enabled || shopUser?.admin
 const link = (to, label, cls='btn') => `<a class="${cls}" href="#${to}">${label}</a>`
 const action = (name, label, cls='btn', id='') => `<button type="button" class="${cls}" data-action="${name}" data-id="${safe(id)}">${label}</button>`
+const shareButton = (id='') => `<button type="button" class="btn share-button" data-action="share-link" data-id="${safe(id)}" aria-label="Bagikan ${id?'produk':'katalog'}">${icon('share')}Bagikan</button>`
 const heading = (title, desc='') => `<header class="heading"><h1>${title}</h1>${desc ? `<p>${desc}</p>` : ''}</header>`
 const back = (to, label) => link(to,icon('back')+label,'back')
 const empty = (title,desc,cta='') => `<section class="panel empty"><h2>${title}</h2><p>${desc}</p>${cta}</section>`
@@ -515,7 +517,7 @@ function productList() {
     item.rating>=Number(state.stars) && terms.every(term=>brandKey([item.brand,item.name,item.reference,item.brand==='Grand Seiko'?'GS':''].join(' ')).includes(term))
   ).sort(sorters[state.sort][1])
   const hasFilters=Boolean(state.brands.length||state.min||state.max||state.stars)
-  return `<header class="catalog-heading"><h1>Katalog jam</h1><span id="catalog-count">${items.length} produk</span></header>
+  return `<header class="catalog-heading"><h1>Katalog jam</h1><div class="catalog-heading-actions"><span id="catalog-count">${items.length} produk</span>${shareButton()}</div></header>
   <div class="filters-bar"><button type="button" class="btn${hasFilters?' filter-active':''}" data-action="filter" aria-haspopup="dialog" aria-controls="sheet" aria-describedby="catalog-count">${icon('filter')}Filter</button>
     <label class="sort-control"><span>Urutkan</span><select id="sort" class="select" aria-label="Urutkan katalog">${Object.entries(sorters).map(([id,[name]])=>`<option value="${id}" ${id===state.sort?'selected':''}>${name}</option>`).join('')}</select></label>
   </div>
@@ -531,7 +533,7 @@ function detail(item) {
   const selected=selectedPhotoIndex(item,pictures)
   const picture=pictures[selected]
   const reviewEntries=shopApi.enabled?item.publicReviews||[]:state.orders.map(order=>order.rated?.[item.id]).filter(Boolean)
-  return `${back('katalog','Katalog')}<div class="product-layout">
+  return `<div class="product-toolbar">${back('katalog','Katalog')}${shareButton(item.id)}</div><div class="product-layout">
     <div class="product-identity">
       ${link('katalog/brand/'+encodeURIComponent(item.brand),safe(item.brand),'product-brand')}
       <h1 translate="no">${safe(item.name)}</h1>
@@ -1024,6 +1026,40 @@ function toast(message) {
   window.clearTimeout(toast.timer)
   toast.timer=window.setTimeout(()=>{$('#toast').textContent=''},2400)
 }
+async function sharePage(trigger) {
+  const id=trigger.dataset.id
+  const item=id?product(id):null
+  if(id&&!item)return
+  const url=new URL(shopApi.enabled?location.href:'https://arlodjie.vercel.app/')
+  url.search=''
+  url.hash=item?'produk/'+encodeURIComponent(item.id):'katalog'
+  const title=item?`${item.brand} ${item.name} · Arlodjie`:'Katalog jam · Arlodjie'
+
+  if(typeof navigator.share==='function'){
+    try {
+      await navigator.share({title,url:url.href})
+      return
+    } catch(error) {
+      if(error.name==='AbortError')return
+    }
+  }
+  try {
+    await navigator.clipboard.writeText(url.href)
+    toast('Tautan disalin.')
+  } catch {
+    const sheet=$('#sheet')
+    if(!trigger.isConnected||sheet.open)return
+    sheet.setAttribute('aria-labelledby','share-link-title')
+    sheet.innerHTML=`<div class="stack">
+      <h2 id="share-link-title">Bagikan ${item?'produk':'katalog'}</h2>
+      <p>Salin tautan ini untuk membagikannya.</p>
+      ${field('Tautan','shareLink',`value="${safe(url.href)}" readonly autofocus`)}
+      <div class="row">${action('close','Tutup')}</div>
+    </div>`
+    sheet.showModal()
+    sheet.querySelector('input').select()
+  }
+}
 function filterPriceError(form,input,message='') {
   form.querySelector('#filter-price-error').textContent=message
   for(const name of ['min','max'])form.elements[name].removeAttribute('aria-invalid')
@@ -1242,6 +1278,10 @@ document.addEventListener('click',(e)=>{
   const trigger=e.target.closest('[data-action]')
   if(!trigger)return
   const {action:name,id}=trigger.dataset
+  if(name==='share-link'){
+    sharePage(trigger)
+    return
+  }
   if(name==='toggle-password'){
     const password=trigger.form.elements.password
     const show=password.type==='password'
