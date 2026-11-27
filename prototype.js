@@ -1116,7 +1116,9 @@ function render(scroll=false) {
   document.body.classList.toggle('admin-area',adminArea)
   $('.wordmark').href=adminArea?'#admin':'#beranda'
   $('#admin-actions').hidden=!shopUser?.admin
-  $('#search input').value=state.query
+  const searchForm=$('#search')
+  searchForm.hidden=page==='akun'
+  searchForm.elements.q.value=state.query
   const views={beranda:home,katalog:productList,produk:()=>detail(product(id)),keranjang:cart,checkout:()=>checkout(id),pesanan:orders,'detail-pesanan':orderDetail,ulasan:()=>review(id),akun:account,profil:editProfile,tentang:about,admin:()=>adminPage(id,sub),masuk:()=>!shopApi.enabled||shopUser?account():signIn(id),daftar:()=>shopApi.enabled?register():missingPage('Pendaftaran tersedia di versi online','akun','Akun Saya'),favorit:()=>heading('Favorit')+(state.favorites.size?grid([...state.favorites].map(product).filter(Boolean)):empty('Belum ada favorit','Simpan jam lewat ikon hati.',link('katalog','Lihat katalog')))}
   const main=$('#main')
   const signedIn=shopApi.enabled?Boolean(shopUser):demoSignedIn

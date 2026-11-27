@@ -764,6 +764,8 @@ body > main { flex: 1; }
 .nav-avatar { --avatar-size: 28px; font-size: .75rem; }
 #search { border-radius: 5px; }
 #search:focus-within { border-color: var(--gold); }
+#search[hidden] { display: none; }
+#search[hidden] + .top-actions { grid-column: -2 / -1; }
 .nav-link { min-height: 48px; }
 .nav-link.active { color: var(--brown); }
 .store-footer {
